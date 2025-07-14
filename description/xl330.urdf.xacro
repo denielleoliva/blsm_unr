@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="xl330_robot">
+
+  <xacro:property name="radius" value="0.02"/>
+  <xacro:property name="length" value="0.05"/>
+  <xacro:property name="mass" value="0.05"/>
+
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <cylinder radius="${radius}" length="${length}"/>
+      </geometry>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <material name="gray">
+        <color rgba="0.6 0.6 0.6 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="${radius}" length="${length}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="${mass}"/>
+      <inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="base_swivel" type="revolute">
+    <parent link="base_link"/>
+    <child link="swivel_link"/>
+    <origin xyz="0 0 ${length/2}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.14" upper="3.14" effort="1.0" velocity="1.0"/>
+  </joint>
+
+  <link name="swivel_link">
+    <visual>
+      <geometry>
+        <box size="0.04 0.04 0.02"/>
+      </geometry>
+      <origin xyz="0 0 0.02" rpy="0 0 0"/>
+      <material name="black">
+        <color rgba="0.0 0.0 0.0 1.0"/>
+      </material>
+    </visual>
+  </link>
+
+  <xacro:macro name="string_motor" params="name parent xyz">
+    <joint name="${name}" type="revolute">
+      <parent link="${parent}"/>
+      <child link="${name}_link"/>
+      <origin xyz="${xyz}" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="-3.14" upper="3.14" effort="1.0" velocity="1.0"/>
+    </joint>
+    <link name="${name}_link">
+      <visual>
+        <geometry>
+          <cylinder radius="0.01" length="0.03"/>
+        </geometry>
+        <origin xyz="0 0 0.015" rpy="0 0 0"/>
+        <material name="red">
+          <color rgba="1 0 0 1"/>
+        </material>
+      </visual>
+    </link>
+  </xacro:macro>
+
+  <xacro:string_motor name="string_left" parent="swivel_link" xyz="0.05 0 0.02"/>
+  <xacro:string_motor name="string_right" parent="swivel_link" xyz="-0.05 0 0.02"/>
+  <xacro:string_motor name="string_back" parent="swivel_link" xyz="0 0.05 0.02"/>
+
+</robot>
