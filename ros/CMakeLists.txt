@@ -11,7 +11,7 @@ find_package(urdf REQUIRED)
 find_package(ros2_control REQUIRED)
 
 include_directories(
-  include
+  include/xl330_ros2_control
 )
 
 add_library(${PROJECT_NAME}
