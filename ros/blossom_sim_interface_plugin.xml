@@ -1,0 +1,9 @@
+<library path="blossom_ros2_driver">
+    <class name="blossom_ros2_driver/BlossomSimInterface"
+        type="blossom_ros2_driver::BlossomSimInterface"
+        base_class_type="hardware_interface::SystemInterface">
+        <description>
+        Simulated interface for Blossom (fake hardware).
+        </description>
+    </class>
+</library>

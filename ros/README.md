@@ -1,57 +1,44 @@
-# XL330 ROS 2 Control
+# Blossom ROS 2 Driver
 
-This package provides a full ROS 2 `ros2_control` integration for controlling 4 Dynamixel XL-330 motors using a USB2Dynamixel converter.
 
-## Installation
+This package enables control of a 3-motor Blossom robot using Dynamixel XL-330s and ROS 2 `ros2_control`. Includes real + fake hardware interfaces, launch files, idle behavior scripts, and URDF with a screen mount.
 
-```bash
-sudo apt install ros-humble-ros2-control ros-humble-ros2-controllers \
-                 ros-humble-joint-state-publisher ros-humble-controller-manager \
-                 ros-humble-xacro
 
-pip install dynamixel-sdk
-```
+## Features
+- 3 DOF: `base_joint`, `head_left`, `head_right`
+- USB2Dynamixel XL-330 real hardware driver
+- Simulated hardware fallback
+- Breathing/idle behavior script
+- Screen mount in URDF for face rendering
+- ROS 2 launch integration with controllers
 
-Clone and build the repo:
-
-```bash
-mkdir -p ~/ros2_ws/src
-cd ~/ros2_ws/src
-# clone this package
-cd ~/ros2_ws
-colcon build --packages-select xl330_ros2_control
-source install/setup.bash
-```
 
 ## Usage
 
-To launch the full robot with 4-motor support:
 
 ```bash
-ros2 launch xl330_ros2_control bringup.launch.py
+ros2 launch blossom_ros2_driver bringup.launch.py
 ```
 
-To teleoperate using the keyboard:
 
+To teleoperate:
 ```bash
-ros2 run xl330_ros2_control teleop_xl330.py
+ros2 run blossom_ros2_driver teleop_blossom.py
 ```
 
-- Use keys `1`–`4` to select a joint
-- Use `a` and `d` to move the selected joint
-- Press `q` to quit
 
-## Motor Setup
+To run idle animation:
+```bash
+ros2 run blossom_ros2_driver idle_breathing_behavior.py
+```
 
-Ensure:
-- All motors are set to Protocol 2.0
-- Each XL-330 has a unique ID: 1 (base), 2 (left), 3 (right), 4 (back)
-- Motors are connected via a USB2Dynamixel TTL adapter (e.g. U2D2)
 
-## Calibration
+## Dependencies
+```bash
+sudo apt install ros-humble-ros2-control ros-humble-joint-state-broadcaster \
+ros-humble-controller-manager ros-humble-xacro
+pip install dynamixel-sdk
+```
 
-1. Start the system.
-2. Use teleop keys to set each joint to a neutral/home position.
-3. Record the angles (in radians) for each joint at rest.
-4. Update initial values in your controller config or enforce offsets in your hardware interface if needed.
-5. Optionally: use Dynamixel Wizard 2.0 to visually center servo limits.
+
+---

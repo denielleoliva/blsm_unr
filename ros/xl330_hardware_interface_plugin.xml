@@ -1,9 +1,0 @@
-<library path="xl330_ros2_control">
-  <class name="xl330_ros2_control/XL330HardwareInterface"
-         type="xl330_ros2_control::XL330HardwareInterface"
-         base_class_type="hardware_interface::SystemInterface">
-    <description>
-      Hardware interface for controlling multiple Dynamixel XL-330 motors.
-    </description>
-  </class>
-</library>

@@ -11,10 +11,9 @@ controller_manager:
 joint_trajectory_controller:
   ros__parameters:
     joints:
-      - base_swivel
-      - string_left
-      - string_right
-      - string_back
+      - base_joint
+      - head_left
+      - head_right
     interface_name: position
     command_interfaces:
       - position
