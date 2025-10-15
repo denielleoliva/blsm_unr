@@ -1,0 +1,8 @@
+<library path="libblossom_dxl_hw">
+  <class
+    name="blossom_dxl_hw/BlossomSystem"
+    type="blossom_dxl_hw::BlossomSystem"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>Blossom Dynamixel ros2_control System</description>
+  </class>
+</library>

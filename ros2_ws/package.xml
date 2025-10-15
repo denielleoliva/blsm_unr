@@ -1,0 +1,19 @@
+<package format="3">
+    <name>blossom_dxl_hw</name>
+    <version>0.0.1</version>
+    <description>ros2_control hardware for Blossom DYNAMIXEL (XL-330)</description>
+    <maintainer email="you@example.com">You</maintainer>
+    <license>MIT</license>
+    <buildtool_depend>ament_cmake</buildtool_depend>
+    <depend>rclcpp</depend>
+    <depend>hardware_interface</depend>
+    <depend>pluginlib</depend>
+    <depend>controller_manager</depend>
+    <depend>ros2_control</depend>
+    <depend>ros2_controllers</depend>
+    <depend>robot_state_publisher</depend>
+    <depend>xacro</depend>
+    <export>
+        <hardware_interface plugin="${prefix}/blossom_dxl_hw_plugins.xml"/>
+    </export>
+</package>

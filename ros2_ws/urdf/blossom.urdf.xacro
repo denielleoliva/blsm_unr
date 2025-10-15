@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<robot name="blossom" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:macro name="joint_rev" params="name parent child lower upper">
+    <joint name="${name}" type="revolute">
+      <parent link="${parent}"/><child link="${child}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="${lower}" upper="${upper}" effort="1.0" velocity="5.0"/>
+    </joint>
+  </xacro:macro>
+
+  <link name="base_link"/>
+  <link name="head_yaw"/>
+  <xacro:joint_rev name="base_pan" parent="base_link" child="head_yaw" lower="-2.62" upper="2.62"/>
+
+  <link name="head_A"/>
+  <joint name="string_front" type="revolute">
+    <parent link="head_yaw"/><child link="head_A"/>
+    <axis xyz="1 0 0"/><limit lower="-0.52" upper="0.52" effort="1.0" velocity="5.0"/>
+  </joint>
+
+  <link name="head_BR"/>
+  <joint name="string_back_right" type="revolute">
+    <parent link="head_yaw"/><child link="head_BR"/>
+    <axis xyz="1 0 0"/><limit lower="-0.52" upper="0.52" effort="1.0" velocity="5.0"/>
+  </joint>
+
+  <link name="head_BL"/>
+  <joint name="string_back_left" type="revolute">
+    <parent link="head_yaw"/><child link="head_BL"/>
+    <axis xyz="1 0 0"/><limit lower="-0.52" upper="0.52" effort="1.0" velocity="5.0"/>
+  </joint>
+
+  <!-- ros2_control: XL-330 on IDs 1..4 @ 57600 -->
+  <ros2_control name="BlossomSystem" type="system">
+    <hardware>
+      <plugin>blossom_dxl_hw/BlossomSystem</plugin>
+      <param name="port">/dev/ttyUSB0</param>
+      <param name="baud">57600</param>
+      <param name="ids">1,2,3,4</param>
+    </hardware>
+
+    <joint name="base_pan">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+    </joint>
+    <joint name="string_front">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+    </joint>
+    <joint name="string_back_right">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+    </joint>
+    <joint name="string_back_left">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+    </joint>
+  </ros2_control>
+</robot>
