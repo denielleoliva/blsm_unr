@@ -14,7 +14,7 @@ add_library(${PROJECT_NAME} SHARED
 )
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 ament_target_dependencies(${PROJECT_NAME}
-  rclcpp hardware_interface pluginlib
+  rclcpp hardware_interface pluginlib dynamixel_sdk
 )
 
 pluginlib_export_plugin_description_file(hardware_interface blossom_dxl_hw_plugins.xml)
