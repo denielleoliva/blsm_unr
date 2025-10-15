@@ -1,4 +1,5 @@
 #include "blossom_dxl_hw/blossom_system.hpp"
+#include <hardware_interface/types/hardware_interface_type_values.hpp>
 #include <pluginlib/class_list_macros.hpp>
 #include <dynamixel_sdk/port_handler.h>
 #include <dynamixel_sdk/packet_handler.h>
