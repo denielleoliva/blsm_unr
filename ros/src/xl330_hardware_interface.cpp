@@ -1,6 +1,6 @@
-#include "xl330_ros2_control/xl330_hardware_interface.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "hardware_interface/types/hardware_interface_type_values.hpp"
+#include xl330_hardware_interface.hpp
+#include rclcpp/rclcpp.hpp
+#include hardware_interface/types/hardware_interface_type_values.hpp
 
 #include <dynamixel_sdk/dynamixel_sdk.h>
 
