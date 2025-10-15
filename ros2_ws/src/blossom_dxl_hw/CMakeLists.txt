@@ -29,3 +29,4 @@ install(FILES blossom_dxl_hw_plugins.xml DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY urdf config launch DESTINATION share/${PROJECT_NAME})
 
 ament_package()
+
