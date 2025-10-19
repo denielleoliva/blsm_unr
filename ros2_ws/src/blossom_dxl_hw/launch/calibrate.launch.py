@@ -9,8 +9,7 @@ def generate_launch_description():
             name='blossom_calibrate_cpp',
             output='screen',
             parameters=[{
-                # ⚙️ Common defaults — change if your setup differs
-                'port': '/dev/ttyUSB0',
+                'port': '/dev/ttyUSB1',
                 'baud': 57600,
                 'ids': [1, 2, 3, 4],
                 'names': [
@@ -19,7 +18,7 @@ def generate_launch_description():
                     'string_back_right',
                     'string_back_left'
                 ],
-                'outfile': '/home/rrl/blsm_ws/src/blossom_dxl_hw/config/blossom_calibration.yaml'
+                'outfile': '~/blsm_ws/src/blossom_dxl_hw/config/blossom_calibration.yaml'
             }]
         )
     ])
