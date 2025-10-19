@@ -1,0 +1,43 @@
+# loop :)
+loop: true
+
+# sequence of behavior blocks
+program:
+  - name: "Warm idle"
+    type: idle_lissajous
+    duration: 8.0
+    amplitude_pitch: 5.0
+    amplitude_roll:  5.0
+    omega_pitch: 0.10
+    omega_roll:  0.13
+    base_amp: 8.0
+    base_omega: 0.15
+    bias: 0.0
+
+  - name: "Glance right"
+    type: glance
+    duration: 0.8
+    side: 1.0
+    roll_amp: 12.0
+    pitch_coupling: -3.0
+
+  - name: "Idle (small)"
+    type: idle_lissajous
+    duration: 5.0
+    amplitude_pitch: 3.0
+    amplitude_roll:  3.0
+    bias: 0.5
+
+  - name: "Nod"
+    type: nod
+    duration: 0.9
+    pitch_amp: 10.0
+
+  - name: "Keyframe pose"
+    type: keyframes
+    duration: 3.0     # don't need but use for timing
+    frames:
+      - { duration: 0.6, base: 185.0, pitch:  5.0, roll:  0.0 }
+      - { duration: 0.8, base: 175.0, pitch: -6.0, roll:  4.0 }
+      - { duration: 0.6, base: 180.0, pitch:  0.0, roll: -3.0 }
+      - { duration: 0.6, base: 180.0, pitch:  0.0, roll:  0.0 }
