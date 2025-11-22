@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blossom Face</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #e6f0ff;
+            font-family: Arial, sans-serif;
+        }
+        
+        #faceCanvas {
+            display: block;
+            cursor: none;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none; /* Hidden by default, show for testing */
+        }
+        
+        button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .emotion-btn {
+            background: #2196F3;
+        }
+        
+        .emotion-btn:hover {
+            background: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="faceCanvas"></canvas>
+    
+    <div id="controls">
+        <h3>Face Controls</h3>
+        <button onclick="setEmotion('neutral')">Neutral</button>
+        <button onclick="setEmotion('happy')" class="emotion-btn">Happy</button>
+        <button onclick="setEmotion('sad')" class="emotion-btn">Sad</button>
+        <button onclick="setEmotion('excited')" class="emotion-btn">Excited</button>
+        <button onclick="setEmotion('calm')" class="emotion-btn">Calm</button>
+        <button onclick="setEmotion('surprised')" class="emotion-btn">Surprised</button>
+        <button onclick="setEmotion('thinking')" class="emotion-btn">Thinking</button>
+        <button onclick="setEmotion('sleepy')" class="emotion-btn">Sleepy</button>
+        <button onclick="face.blink()">Blink</button>
+    </div>
+
+    <script>
+        class Eye {
+            constructor(x, y, size) {
+                this.x = x;
+                this.y = y;
+                this.baseSize = size;
+                this.currentSize = size;
+                this.targetSize = size;
+                this.blinkTimer = 0;
+                this.pupilOffsetX = 0;
+                this.pupilOffsetY = 0;
+                this.targetPupilX = 0;
+                this.targetPupilY = 0;
+            }
+            
+            update(dt) {
+                // Smooth size transitions
+                const sizeDiff = this.targetSize - this.currentSize;
+                this.currentSize += sizeDiff * 0.3;
+                
+                // Smooth pupil movement
+                const pupilDiffX = this.targetPupilX - this.pupilOffsetX;
+                const pupilDiffY = this.targetPupilY - this.pupilOffsetY;
+                this.pupilOffsetX += pupilDiffX * 0.1;
+                this.pupilOffsetY += pupilDiffY * 0.1;
+            }
+            
+            draw(ctx, emotion) {
+                // Eye white
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, this.currentSize, this.currentSize * 0.7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Outline
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Pupil
+                const pupilSize = this.currentSize * 0.5;
+                const pupilX = this.x + this.pupilOffsetX;
+                const pupilY = this.y + this.pupilOffsetY;
+                
+                // Pupil color based on emotion
+                let pupilColor = '#323232';
+                if (emotion === 'happy' || emotion === 'excited') {
+                    pupilColor = '#1e1e1e';
+                }
+                
+                ctx.fillStyle = pupilColor;
+                ctx.beginPath();
+                ctx.arc(pupilX, pupilY, pupilSize, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Highlight
+                const highlightSize = pupilSize * 0.3;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(pupilX - pupilSize * 0.2, pupilY - pupilSize * 0.2, highlightSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            blink() {
+                this.targetSize = this.baseSize * 0.1;
+                this.blinkTimer = 0.2;
+            }
+            
+            open() {
+                this.targetSize = this.baseSize;
+            }
+            
+            lookAt(x, y, maxOffset = 20) {
+                const dx = x - this.x;
+                const dy = y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist > 0) {
+                    this.targetPupilX = (dx / dist) * Math.min(dist * 0.2, maxOffset);
+                    this.targetPupilY = (dy / dist) * Math.min(dist * 0.2, maxOffset);
+                }
+            }
+        }
+        
+        class BlossomFace {
+            constructor(width, height) {
+                this.width = width;
+                this.height = height;
+                this.emotion = 'neutral';
+                
+                // Create eyes
+                const eyeY = height * 0.4;
+                const eyeSpacing = width * 0.25;
+                const eyeSize = 60;
+                
+                this.leftEye = new Eye(width / 2 - eyeSpacing, eyeY, eyeSize);
+                this.rightEye = new Eye(width / 2 + eyeSpacing, eyeY, eyeSize);
+                
+                // Animation state
+                this.time = 0;
+                this.blinkCooldown = 0;
+                this.nextBlink = this.randomBlink();
+                
+                // Mouth parameters
+                this.mouthY = height * 0.65;
+                this.mouthCurve = 0;
+                this.targetMouthCurve = 0;
+                
+                // Background color
+                this.bgColor = '#e6f0ff';
+                this.targetBgColor = '#e6f0ff';
+            }
+            
+            randomBlink() {
+                return 2 + Math.random() * 3;
+            }
+            
+            setEmotion(emotion) {
+                this.emotion = emotion;
+                
+                switch(emotion) {
+                    case 'happy':
+                        this.targetMouthCurve = 40;
+                        this.targetBgColor = '#fffac8';
+                        break;
+                    case 'sad':
+                        this.targetMouthCurve = -30;
+                        this.targetBgColor = '#c8d2e6';
+                        break;
+                    case 'excited':
+                        this.targetMouthCurve = 50;
+                        this.leftEye.targetSize = this.leftEye.baseSize * 1.2;
+                        this.rightEye.targetSize = this.rightEye.baseSize * 1.2;
+                        this.targetBgColor = '#fff0c8';
+                        break;
+                    case 'calm':
+                        this.targetMouthCurve = 10;
+                        this.leftEye.targetSize = this.leftEye.baseSize * 0.9;
+                        this.rightEye.targetSize = this.rightEye.baseSize * 0.9;
+                        this.targetBgColor = '#dcf0ff';
+                        break;
+                    case 'surprised':
+                        this.targetMouthCurve = 0;
+                        this.leftEye.targetSize = this.leftEye.baseSize * 1.4;
+                        this.rightEye.targetSize = this.rightEye.baseSize * 1.4;
+                        this.targetBgColor = '#fff5e6';
+                        break;
+                    case 'thinking':
+                        this.targetMouthCurve = 5;
+                        this.leftEye.lookAt(this.width * 0.3, this.height * 0.3);
+                        this.targetBgColor = '#f0f0fa';
+                        break;
+                    case 'sleepy':
+                        this.targetMouthCurve = 0;
+                        this.leftEye.targetSize = this.leftEye.baseSize * 0.5;
+                        this.rightEye.targetSize = this.rightEye.baseSize * 0.5;
+                        this.targetBgColor = '#d2dcf0';
+                        break;
+                    default: // neutral
+                        this.targetMouthCurve = 0;
+                        this.leftEye.targetSize = this.leftEye.baseSize;
+                        this.rightEye.targetSize = this.rightEye.baseSize;
+                        this.targetBgColor = '#e6f0ff';
+                }
+            }
+            
+            update(dt) {
+                this.time += dt;
+                
+                // Update eyes
+                this.leftEye.update(dt);
+                this.rightEye.update(dt);
+                
+                // Handle blinking
+                this.blinkCooldown -= dt;
+                
+                if (this.leftEye.blinkTimer > 0) {
+                    this.leftEye.blinkTimer -= dt;
+                    if (this.leftEye.blinkTimer <= 0) {
+                        this.leftEye.open();
+                        this.rightEye.open();
+                    }
+                }
+                
+                if (this.blinkCooldown <= 0 && this.time > this.nextBlink) {
+                    this.blink();
+                    this.blinkCooldown = 0.2;
+                    this.nextBlink = this.time + this.randomBlink();
+                }
+                
+                // Smooth mouth transition
+                const mouthDiff = this.targetMouthCurve - this.mouthCurve;
+                this.mouthCurve += mouthDiff * 0.1;
+                
+                // Smooth background color transition
+                this.bgColor = this.lerpColor(this.bgColor, this.targetBgColor, 0.05);
+                
+                // Subtle breathing animation
+                if (this.emotion === 'calm' || this.emotion === 'neutral') {
+                    const breath = Math.sin(this.time * 2) * 2;
+                    this.leftEye.y = this.height * 0.4 + breath;
+                    this.rightEye.y = this.height * 0.4 + breath;
+                }
+            }
+            
+            lerpColor(color1, color2, t) {
+                const c1 = this.hexToRgb(color1);
+                const c2 = this.hexToRgb(color2);
+                
+                const r = Math.round(c1.r + (c2.r - c1.r) * t);
+                const g = Math.round(c1.g + (c2.g - c1.g) * t);
+                const b = Math.round(c1.b + (c2.b - c1.b) * t);
+                
+                return this.rgbToHex(r, g, b);
+            }
+            
+            hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? {
+                    r: parseInt(result[1], 16),
+                    g: parseInt(result[2], 16),
+                    b: parseInt(result[3], 16)
+                } : {r: 230, g: 240, b: 255};
+            }
+            
+            rgbToHex(r, g, b) {
+                return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+            }
+            
+            draw(ctx) {
+                // Background
+                ctx.fillStyle = this.bgColor;
+                ctx.fillRect(0, 0, this.width, this.height);
+                
+                // Draw eyes
+                this.leftEye.draw(ctx, this.emotion);
+                this.rightEye.draw(ctx, this.emotion);
+                
+                // Draw mouth
+                this.drawMouth(ctx);
+            }
+            
+            drawMouth(ctx) {
+                const mouthWidth = 150;
+                const mouthX = this.width / 2;
+                const mouthY = this.mouthY;
+                
+                ctx.strokeStyle = '#646464';
+                ctx.lineWidth = 8;
+                ctx.lineCap = 'round';
+                
+                if (Math.abs(this.mouthCurve) < 5) {
+                    // Straight line for neutral
+                    ctx.beginPath();
+                    ctx.moveTo(mouthX - mouthWidth / 2, mouthY);
+                    ctx.lineTo(mouthX + mouthWidth / 2, mouthY);
+                    ctx.stroke();
+                } else {
+                    // Curved mouth
+                    ctx.beginPath();
+                    const numPoints = 20;
+                    
+                    for (let i = 0; i < numPoints; i++) {
+                        const t = i / (numPoints - 1);
+                        const x = mouthX - mouthWidth / 2 + t * mouthWidth;
+                        const curveT = (t - 0.5) * 2;
+                        const y = mouthY + this.mouthCurve * (1 - curveT * curveT);
+                        
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+                }
+            }
+            
+            blink() {
+                this.leftEye.blink();
+                this.rightEye.blink();
+            }
+        }
+        
+        // Initialize
+        const canvas = document.getElementById('faceCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size to 800x480 for the TFT display
+        canvas.width = 800;
+        canvas.height = 480;
+        
+        // Create face
+        const face = new BlossomFace(canvas.width, canvas.height);
+        
+        let lastTime = Date.now();
+        
+        // Animation loop
+        function animate() {
+            const now = Date.now();
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+            
+            face.update(dt);
+            face.draw(ctx);
+            
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+        
+        // API for external control
+        function setEmotion(emotion) {
+            face.setEmotion(emotion);
+            console.log('Emotion set to:', emotion);
+        }
+        
+        // Mouse tracking (optional - for testing)
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            face.leftEye.lookAt(x, y);
+            face.rightEye.lookAt(x, y);
+        });
+        
+        // Keyboard shortcuts for testing
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case '1': setEmotion('neutral'); break;
+                case '2': setEmotion('happy'); break;
+                case '3': setEmotion('sad'); break;
+                case '4': setEmotion('excited'); break;
+                case '5': setEmotion('calm'); break;
+                case '6': setEmotion('surprised'); break;
+                case '7': setEmotion('thinking'); break;
+                case '8': setEmotion('sleepy'); break;
+                case ' ': face.blink(); break;
+                case 'c': 
+                    const controls = document.getElementById('controls');
+                    controls.style.display = controls.style.display === 'none' ? 'block' : 'none';
+                    break;
+            }
+        });
+        
+        // ROS bridge integration (if using rosbridge_suite)
+        // Uncomment and configure if using ROS bridge:
+        /*
+        const ros = new ROSLIB.Ros({
+            url : 'ws://localhost:9090'
+        });
+        
+        const emotionTopic = new ROSLIB.Topic({
+            ros : ros,
+            name : '/face_emotion',
+            messageType : 'std_msgs/String'
+        });
+        
+        emotionTopic.subscribe((message) => {
+            setEmotion(message.data);
+        });
+        */
+        
+        console.log('Blossom Face initialized!');
+        console.log('Keyboard shortcuts: 1-8 for emotions, Space to blink, C to toggle controls');
+    </script>
+</body>
+</html>
