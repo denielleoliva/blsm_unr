@@ -1,0 +1,133 @@
+# Example gesture sequences for Blossom
+
+# Nodding "yes" gesture
+yes:
+  keyframes:
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.5
+        tower_3: -0.3
+        tower_4: -0.3
+      duration: 0.3
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.5
+        tower_3: 0.3
+        tower_4: 0.3
+      duration: 0.3
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.5
+        tower_3: -0.3
+        tower_4: -0.3
+      duration: 0.3
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.5
+        tower_3: 0.0
+        tower_4: 0.0
+      duration: 0.3
+
+# Shaking "no" gesture
+no:
+  keyframes:
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.3
+        tower_3: 0.5
+        tower_4: 0.3
+      duration: 0.3
+    - joints:
+        tower_1: 0.3
+        tower_2: 0.5
+        tower_3: 0.3
+        tower_4: 0.5
+      duration: 0.3
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.3
+        tower_3: 0.5
+        tower_4: 0.3
+      duration: 0.3
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.5
+        tower_3: 0.5
+        tower_4: 0.5
+      duration: 0.3
+
+# Idle breathing animation
+idle:
+  keyframes:
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.5
+        tower_3: 0.5
+        tower_4: 0.5
+      duration: 2.0
+    - joints:
+        tower_1: 0.55
+        tower_2: 0.55
+        tower_3: 0.55
+        tower_4: 0.55
+      duration: 2.0
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.5
+        tower_3: 0.5
+        tower_4: 0.5
+      duration: 2.0
+
+# Happy gesture
+happy:
+  keyframes:
+    - joints:
+        tower_1: 0.6
+        tower_2: 0.6
+        tower_3: 0.4
+        tower_4: 0.4
+      duration: 0.5
+    - joints:
+        tower_1: 0.7
+        tower_2: 0.7
+        tower_3: 0.5
+        tower_4: 0.5
+      duration: 0.3
+    - joints:
+        tower_1: 0.6
+        tower_2: 0.6
+        tower_3: 0.4
+        tower_4: 0.4
+      duration: 0.3
+
+# Look left
+look_left:
+  keyframes:
+    - joints:
+        tower_1: 0.6
+        tower_2: 0.4
+        tower_3: 0.6
+        tower_4: 0.4
+      duration: 0.5
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.5
+        tower_3: 0.5
+        tower_4: 0.5
+      duration: 0.5
+
+# Look right
+look_right:
+  keyframes:
+    - joints:
+        tower_1: 0.4
+        tower_2: 0.6
+        tower_3: 0.4
+        tower_4: 0.6
+      duration: 0.5
+    - joints:
+        tower_1: 0.5
+        tower_2: 0.5
+        tower_3: 0.5
+        tower_4: 0.5
+      duration: 0.5

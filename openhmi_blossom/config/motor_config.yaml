@@ -1,0 +1,29 @@
+# Blossom Motor Configuration
+
+# Motor IDs for Dynamixel servos
+motor_ids:
+  tower_1: 1
+  tower_2: 2
+  tower_3: 3
+  tower_4: 4
+
+# Motor position limits (in Dynamixel units: 0-4095)
+motor_limits:
+  tower_1: [0, 4095]
+  tower_2: [0, 4095]
+  tower_3: [0, 4095]
+  tower_4: [0, 4095]
+
+# Home positions (neutral stance)
+home_positions:
+  tower_1: 2048
+  tower_2: 2048
+  tower_3: 2048
+  tower_4: 2048
+
+# Motor speed settings (0-1023)
+motor_speeds:
+  tower_1: 512
+  tower_2: 512
+  tower_3: 512
+  tower_4: 512

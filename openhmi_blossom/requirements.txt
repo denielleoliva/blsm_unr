@@ -1,0 +1,11 @@
+# Python dependencies for OpenHMI Blossom ROS 2 package
+
+pyserial>=3.5
+pyyaml>=5.4
+numpy>=1.20.0
+
+# Optional: For Dynamixel SDK integration
+# dynamixel-sdk>=3.7.0
+
+# Optional: For enhanced interpolation
+# scipy>=1.7.0
