@@ -2,28 +2,29 @@
 
 # Motor IDs for Dynamixel servos
 motor_ids:
-  tower_1: 1
-  tower_2: 2
-  tower_3: 3
-  tower_4: 4
+  lazy_susan: 1        # Base rotation motor
+  motor_front: 2       # Front head plate motor
+  motor_back_left: 3   # Back-left head plate motor
+  motor_back_right: 4  # Back-right head plate motor
 
-# Motor position limits (in Dynamixel units: 0-4095)
+# Motor position limits (in controller units)
+# These are converted to Dynamixel units (0-4095) by the motor interface
 motor_limits:
-  tower_1: [0, 4095]
-  tower_2: [0, 4095]
-  tower_3: [0, 4095]
-  tower_4: [0, 4095]
+  lazy_susan: [0, 1023]      # Base rotation range
+  motor_front: [0, 400]      # Head plate pull range (0 = extended, 400 = max pull)
+  motor_back_left: [0, 400]  # Head plate pull range (0 = extended, 400 = max pull)
+  motor_back_right: [0, 400] # Head plate pull range (0 = extended, 400 = max pull)
 
-# Home positions (neutral stance)
+# Home positions (neutral stance in controller units)
 home_positions:
-  tower_1: 2048
-  tower_2: 2048
-  tower_3: 2048
-  tower_4: 2048
+  lazy_susan: 512         # Center position for base rotation
+  motor_front: 0          # No pull (extended)
+  motor_back_left: 0      # No pull (extended)
+  motor_back_right: 0     # No pull (extended)
 
-# Motor speed settings (0-1023)
+# Motor speed settings (0-1023 for Dynamixel)
 motor_speeds:
-  tower_1: 512
-  tower_2: 512
-  tower_3: 512
-  tower_4: 512
+  lazy_susan: 256         # Moderate speed for base rotation
+  motor_front: 512        # Medium speed for head movements
+  motor_back_left: 512    # Medium speed for head movements
+  motor_back_right: 512   # Medium speed for head movements

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Motor Interface Node for Blossom Robot
-Handles low-level communication with Dynamixel motors via serial
+Handles low-level communication with XL-320 Dynamixel motors via serial
 """
 
 import rclpy
@@ -13,63 +13,115 @@ import yaml
 import time
 from typing import Dict, List, Optional
 
+# Dynamixel SDK
+try:
+    from dynamixel_sdk import *
+    DYNAMIXEL_SDK_AVAILABLE = True
+except ImportError:
+    DYNAMIXEL_SDK_AVAILABLE = False
+    print("Warning: Dynamixel SDK not available. Motor control will not work.")
+
 
 class MotorInterface(Node):
-    """Interface for controlling Blossom's Dynamixel motors."""
-    
+    """Interface for controlling Blossom's XL-320 Dynamixel motors."""
+
     def __init__(self):
         super().__init__('motor_interface')
-        
+
         # Declare parameters
-        self.declare_parameter('port', '/dev/ttyACM0')
+        self.declare_parameter('port', '/dev/ttyUSB0')
         self.declare_parameter('baudrate', 1000000)
         self.declare_parameter('motor_config', '')
         self.declare_parameter('publish_rate', 50.0)
-        
+
         # Get parameters
         port = self.get_parameter('port').value
         baudrate = self.get_parameter('baudrate').value
         config_file = self.get_parameter('motor_config').value
         publish_rate = self.get_parameter('publish_rate').value
-        
-        # Initialize serial connection
-        try:
-            self.serial_port = serial.Serial(port, baudrate, timeout=0.1)
-            self.get_logger().info(f'Connected to motors on {port} at {baudrate} baud')
-        except serial.SerialException as e:
-            self.get_logger().error(f'Failed to open serial port: {e}')
-            raise
-        
+
+        # XL-320 specific constants
+        self.MOTOR_MODEL = 'XL-320'
+        self.POSITION_RANGE = 1023  # XL-320 range is 0-1023, NOT 0-4095!
+        self.PROTOCOL_VERSION = 2.0  # XL-320 uses Protocol 2.0
+
+        # XL-320 Control Table addresses
+        self.ADDR_TORQUE_ENABLE = 24
+        self.ADDR_GOAL_POSITION = 30
+        self.ADDR_MOVING_SPEED = 32
+        self.ADDR_PRESENT_POSITION = 37
+
+        # Dynamixel SDK setup
+        self.port_handler = None
+        self.packet_handler = None
+
+        if DYNAMIXEL_SDK_AVAILABLE:
+            # Initialize PortHandler and PacketHandler
+            self.port_handler = PortHandler(port)
+            self.packet_handler = PacketHandler(self.PROTOCOL_VERSION)
+
+            # Open port
+            if self.port_handler.openPort():
+                self.get_logger().info(f'Opened port {port}')
+            else:
+                self.get_logger().error(f'Failed to open port {port}')
+                raise RuntimeError(f'Failed to open port {port}')
+
+            # Set baudrate
+            if self.port_handler.setBaudRate(baudrate):
+                self.get_logger().info(f'Set baudrate to {baudrate}')
+            else:
+                self.get_logger().error(f'Failed to set baudrate to {baudrate}')
+                raise RuntimeError(f'Failed to set baudrate to {baudrate}')
+
+            self.get_logger().info(f'Connected to XL-320 motors on {port} at {baudrate} baud')
+        else:
+            self.get_logger().warn('Dynamixel SDK not available - running in simulation mode')
+
         # Load motor configuration
         self.motor_ids = {}
         self.motor_limits = {}
         if config_file:
             self.load_motor_config(config_file)
         else:
-            # Default Blossom configuration
+            # Default Blossom configuration for XL-320
+            # Motor IDs for Dynamixel servos
             self.motor_ids = {
-                'tower_1': 1,
-                'tower_2': 2,
-                'tower_3': 3,
-                'tower_4': 4,
+                'lazy_susan': 1,        # Base rotation motor
+                'motor_front': 2,       # Front head plate motor
+                'motor_back_left': 3,   # Back-left head plate motor
+                'motor_back_right': 4,  # Back-right head plate motor
             }
+            # Motor position limits in controller units
+            # For XL-320: direct mapping to motor units (0-1023)
             self.motor_limits = {
-                'tower_1': (0, 4095),
-                'tower_2': (0, 4095),
-                'tower_3': (0, 4095),
-                'tower_4': (0, 4095),
+                'lazy_susan': (0, 1023),      # Full rotation range
+                'motor_front': (0, 400),      # Head plate pull range
+                'motor_back_left': (0, 400),  # Head plate pull range
+                'motor_back_right': (0, 400), # Head plate pull range
             }
-        
-        # Current joint positions
-        self.current_positions = {name: 2048 for name in self.motor_ids.keys()}
-        
+
+        # Current joint positions (initialize to home/neutral positions)
+        self.current_positions = {}
+        for name in self.motor_ids.keys():
+            if name == 'lazy_susan':
+                # Center position for lazy susan (512 for XL-320)
+                self.current_positions[name] = 512
+            else:
+                # Home position for head motors (0 = no pull)
+                self.current_positions[name] = 0
+
+        # Initialize motors on startup
+        if DYNAMIXEL_SDK_AVAILABLE and self.port_handler:
+            self._initialize_motors()
+
         # Publishers
         self.joint_state_pub = self.create_publisher(
             JointState,
             'joint_states',
             10
         )
-        
+
         # Subscribers
         self.joint_cmd_sub = self.create_subscription(
             JointState,
@@ -77,12 +129,33 @@ class MotorInterface(Node):
             self.joint_command_callback,
             10
         )
-        
+
         # Timer for publishing joint states
         self.create_timer(1.0 / publish_rate, self.publish_joint_states)
-        
-        self.get_logger().info('Motor interface initialized')
-    
+
+        self.get_logger().info(f'Motor interface initialized for {self.MOTOR_MODEL}')
+
+    def _initialize_motors(self):
+        """Initialize all motors on startup."""
+        for name, motor_id in self.motor_ids.items():
+            try:
+                # Set moving speed for each motor
+                dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
+                    self.port_handler, motor_id, self.ADDR_MOVING_SPEED, 200
+                )
+
+                # Enable torque
+                dxl_comm_result, dxl_error = self.packet_handler.write1ByteTxRx(
+                    self.port_handler, motor_id, self.ADDR_TORQUE_ENABLE, 1
+                )
+
+                if dxl_comm_result == COMM_SUCCESS:
+                    self.get_logger().info(f'Initialized motor {name} (ID: {motor_id})')
+                else:
+                    self.get_logger().warn(f'Failed to initialize motor {name} (ID: {motor_id})')
+            except Exception as e:
+                self.get_logger().error(f'Exception initializing motor {name}: {e}')
+
     def load_motor_config(self, config_file: str):
         """Load motor configuration from YAML file."""
         try:
@@ -93,102 +166,149 @@ class MotorInterface(Node):
                 self.get_logger().info(f'Loaded motor config from {config_file}')
         except Exception as e:
             self.get_logger().error(f'Failed to load config: {e}')
-    
+
     def joint_command_callback(self, msg: JointState):
         """Handle incoming joint position commands."""
         for i, name in enumerate(msg.name):
             if name in self.motor_ids and i < len(msg.position):
                 motor_id = self.motor_ids[name]
                 position = msg.position[i]
-                
-                # Convert position to motor units (0-4095 for Dynamixel)
+
+                # Convert position to motor units (0-1023 for XL-320)
                 motor_position = self.position_to_motor_units(name, position)
-                
+
                 # Send command to motor
                 self.set_motor_position(motor_id, motor_position)
                 self.current_positions[name] = motor_position
-    
+
     def position_to_motor_units(self, joint_name: str, position: float) -> int:
         """
-        Convert joint position (radians or normalized) to motor units.
-        
+        Convert joint position from controller units to XL-320 motor units.
+
         Args:
             joint_name: Name of the joint
-            position: Position value (assumed to be in range [-pi, pi] or [0, 1])
-        
+            position: Position value from controller:
+                      - lazy_susan: [0, 1023]
+                      - head motors: [0, 400]
+
         Returns:
-            Motor position in units (0-4095)
+            Motor position in XL-320 units (0-1023)
         """
-        limits = self.motor_limits.get(joint_name, (0, 4095))
-        
-        # If position is in radians (assume -pi to pi)
-        if abs(position) > 2.0:  # Likely in radians
-            # Normalize to 0-1
-            normalized = (position + 3.14159) / (2 * 3.14159)
+        limits = self.motor_limits.get(joint_name, (0, 1023))
+
+        # Clamp to controller limits
+        clamped_position = max(limits[0], min(limits[1], position))
+
+        # Map controller range to XL-320 range (0-1023)
+        controller_range = limits[1] - limits[0]
+        if controller_range > 0:
+            normalized = (clamped_position - limits[0]) / controller_range
         else:
-            # Assume already normalized or close to it
-            normalized = (position + 1.0) / 2.0
-        
-        # Clamp to 0-1
-        normalized = max(0.0, min(1.0, normalized))
-        
-        # Scale to motor range
-        motor_pos = int(limits[0] + normalized * (limits[1] - limits[0]))
+            normalized = 0.0
+
+        # Scale to XL-320 motor units (0-1023)
+        motor_pos = int(normalized * self.POSITION_RANGE)
+
+        # Clamp to XL-320 limits
+        motor_pos = max(0, min(self.POSITION_RANGE, motor_pos))
+
         return motor_pos
-    
+
     def set_motor_position(self, motor_id: int, position: int):
         """
-        Send position command to a motor.
-        
-        Note: This is a simplified protocol. You'll need to implement
-        the actual Dynamixel protocol or use pyserial with proper packet format.
+        Send position command to an XL-320 motor.
+
+        Args:
+            motor_id: Dynamixel motor ID
+            position: Goal position in XL-320 units (0-1023)
         """
+        if not DYNAMIXEL_SDK_AVAILABLE or not self.port_handler:
+            # Simulation mode - just log
+            self.get_logger().debug(f'[SIM] Motor {motor_id} -> {position}')
+            return
+
         try:
-            # Simplified command format - replace with actual Dynamixel protocol
-            # For Dynamixel AX/MX series, you'd use:
-            # - Instruction packet with goal position
-            cmd = f"#{motor_id}P{position}\r".encode()
-            self.serial_port.write(cmd)
-            
-            # For actual Dynamixel implementation, use dynamixel_sdk:
-            # self.packetHandler.write4ByteTxRx(self.portHandler, motor_id, 
-            #                                    ADDR_GOAL_POSITION, position)
-            
+            # Write goal position (2 bytes for XL-320)
+            dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
+                self.port_handler, motor_id, self.ADDR_GOAL_POSITION, position
+            )
+
+            if dxl_comm_result != COMM_SUCCESS:
+                self.get_logger().error(
+                    f'Failed to set motor {motor_id} position: '
+                    f'{self.packet_handler.getTxRxResult(dxl_comm_result)}'
+                )
+            elif dxl_error != 0:
+                self.get_logger().warn(
+                    f'Motor {motor_id} error: '
+                    f'{self.packet_handler.getRxPacketError(dxl_error)}'
+                )
+            else:
+                self.get_logger().debug(f'Motor {motor_id} set to position {position}')
+
         except Exception as e:
-            self.get_logger().error(f'Failed to set motor {motor_id} position: {e}')
-    
+            self.get_logger().error(f'Exception setting motor {motor_id} position: {e}')
+
     def publish_joint_states(self):
         """Publish current joint states."""
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
-        
-        for name, position in self.current_positions.items():
+
+        for name, motor_position in self.current_positions.items():
             msg.name.append(name)
-            # Convert motor units back to radians
-            radians = self.motor_units_to_radians(position)
-            msg.position.append(radians)
+            # Convert motor units back to controller units
+            controller_pos = self.motor_units_to_controller(name, motor_position)
+            msg.position.append(controller_pos)
             msg.velocity.append(0.0)  # TODO: Read actual velocity
             msg.effort.append(0.0)    # TODO: Read actual effort
-        
+
         self.joint_state_pub.publish(msg)
-    
-    def motor_units_to_radians(self, motor_position: int) -> float:
-        """Convert motor units (0-4095) to radians."""
-        normalized = motor_position / 4095.0
-        radians = (normalized * 2 * 3.14159) - 3.14159
-        return radians
-    
+
+    def motor_units_to_controller(self, joint_name: str, motor_position: int) -> float:
+        """
+        Convert XL-320 motor units (0-1023) back to controller units.
+
+        Args:
+            joint_name: Name of the joint
+            motor_position: Position in XL-320 units (0-1023)
+
+        Returns:
+            Position in controller units:
+            - lazy_susan: [0, 1023]
+            - head motors: [0, 400]
+        """
+        limits = self.motor_limits.get(joint_name, (0, 1023))
+
+        # Normalize from XL-320 range
+        normalized = motor_position / float(self.POSITION_RANGE)
+
+        # Scale to controller range
+        controller_range = limits[1] - limits[0]
+        controller_pos = limits[0] + (normalized * controller_range)
+
+        return controller_pos
+
     def destroy_node(self):
         """Clean up resources."""
-        if hasattr(self, 'serial_port') and self.serial_port.is_open:
-            self.serial_port.close()
+        if DYNAMIXEL_SDK_AVAILABLE and self.port_handler is not None:
+            # Disable torque on all motors before closing (XL-320 address)
+            for motor_id in self.motor_ids.values():
+                try:
+                    self.packet_handler.write1ByteTxRx(
+                        self.port_handler, motor_id, self.ADDR_TORQUE_ENABLE, 0
+                    )
+                except:
+                    pass
+            # Close port
+            self.port_handler.closePort()
+            self.get_logger().info('Closed Dynamixel port')
         super().destroy_node()
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = MotorInterface()
-    
+
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

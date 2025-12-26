@@ -16,6 +16,7 @@ import json
 import os
 from typing import Dict, List, Optional
 from threading import Lock
+from std_srvs.srv import Trigger
 
 
 class SequencePlayer(Node):
@@ -67,7 +68,7 @@ class SequencePlayer(Node):
         
         # Services
         self.create_service(
-            from std_srvs.srv import Trigger,
+            Trigger,
             'list_sequences',
             self.list_sequences_callback
         )
@@ -81,22 +82,49 @@ class SequencePlayer(Node):
             for filename in os.listdir(self.sequences_dir):
                 if filename.endswith('.yaml') or filename.endswith('.yml'):
                     filepath = os.path.join(self.sequences_dir, filename)
-                    seq_name = os.path.splitext(filename)[0]
-                    
+
+                    # Skip motor_config.yaml - it's not a sequence file
+                    if 'motor_config' in filename:
+                        continue
+
                     with open(filepath, 'r') as f:
-                        sequence_data = yaml.safe_load(f)
-                        self.sequences[seq_name] = sequence_data
-                        self.get_logger().info(f'Loaded sequence: {seq_name}')
-                        
+                        file_data = yaml.safe_load(f)
+
+                        # Check if this file contains multiple sequences or a single one
+                        if isinstance(file_data, dict):
+                            # If the file has a 'keyframes' key at top level, it's a single sequence
+                            if 'keyframes' in file_data:
+                                seq_name = os.path.splitext(filename)[0]
+                                self.sequences[seq_name] = file_data
+                                self.get_logger().info(f'Loaded sequence: {seq_name}')
+                            else:
+                                # Otherwise, it contains multiple sequences as top-level keys
+                                for seq_name, sequence_data in file_data.items():
+                                    # Only load if it's a dict with keyframes
+                                    if isinstance(sequence_data, dict) and 'keyframes' in sequence_data:
+                                        # Convert sequence name to string to avoid boolean issues
+                                        seq_name_str = str(seq_name)
+                                        self.sequences[seq_name_str] = sequence_data
+                                        self.get_logger().info(f'Loaded sequence: {seq_name_str}')
+
                 elif filename.endswith('.json'):
                     filepath = os.path.join(self.sequences_dir, filename)
-                    seq_name = os.path.splitext(filename)[0]
-                    
+
                     with open(filepath, 'r') as f:
-                        sequence_data = json.load(f)
-                        self.sequences[seq_name] = sequence_data
-                        self.get_logger().info(f'Loaded sequence: {seq_name}')
-                        
+                        file_data = json.load(f)
+
+                        # Same logic for JSON files
+                        if isinstance(file_data, dict):
+                            if 'keyframes' in file_data:
+                                seq_name = os.path.splitext(filename)[0]
+                                self.sequences[seq_name] = file_data
+                                self.get_logger().info(f'Loaded sequence: {seq_name}')
+                            else:
+                                for seq_name, sequence_data in file_data.items():
+                                    if isinstance(sequence_data, dict) and 'keyframes' in sequence_data:
+                                        self.sequences[seq_name] = sequence_data
+                                        self.get_logger().info(f'Loaded sequence: {seq_name}')
+
         except Exception as e:
             self.get_logger().error(f'Error loading sequences: {e}')
     

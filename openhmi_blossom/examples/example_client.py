@@ -119,35 +119,114 @@ class BlossomExampleClient(Node):
     def demo_poses(self):
         """Run through a demo of different poses."""
         self.get_logger().info('Starting pose demo...')
-        
+
         # Neutral
         self.set_pose(0.0, 0.0, 0.0, 0.5)
         time.sleep(2.0)
-        
+
         # Look up
         self.set_pose(0.3, 0.0, 0.0, 0.5)
         time.sleep(2.0)
-        
+
         # Look down
         self.set_pose(-0.3, 0.0, 0.0, 0.5)
         time.sleep(2.0)
-        
+
         # Look left
         self.set_pose(0.0, 0.5, 0.0, 0.5)
         time.sleep(2.0)
-        
+
         # Look right
         self.set_pose(0.0, -0.5, 0.0, 0.5)
         time.sleep(2.0)
-        
+
         # Tilt
         self.set_pose(0.0, 0.0, 0.3, 0.5)
         time.sleep(2.0)
-        
+
         # Back to neutral
         self.set_pose(0.0, 0.0, 0.0, 0.5)
-        
+
         self.get_logger().info('Pose demo complete')
+
+    def demo_joints(self):
+        """Run through a demo of direct joint control."""
+        self.get_logger().info('Starting joint control demo...')
+        self.get_logger().info('Motor ranges:')
+        self.get_logger().info('  lazy_susan: [0, 1023], home=512')
+        self.get_logger().info('  motor_front/back_left/back_right: [0, 400], 0=extended, 400=max pull')
+
+        # Neutral/home position
+        self.get_logger().info('Moving to home position...')
+        self.set_joint_positions({
+            'lazy_susan': 512,      # Center
+            'motor_front': 0,       # Extended (no pull)
+            'motor_back_left': 0,   # Extended
+            'motor_back_right': 0   # Extended
+        })
+        time.sleep(2.0)
+
+        # Rotate base left
+        self.get_logger().info('Rotating base left...')
+        self.set_joint_positions({
+            'lazy_susan': 400,      # Turn left
+            'motor_front': 100,     # Neutral head
+            'motor_back_left': 100,
+            'motor_back_right': 100
+        })
+        time.sleep(2.0)
+
+        # Rotate base right
+        self.get_logger().info('Rotating base right...')
+        self.set_joint_positions({
+            'lazy_susan': 624,      # Turn right
+            'motor_front': 100,     # Neutral head
+            'motor_back_left': 100,
+            'motor_back_right': 100
+        })
+        time.sleep(2.0)
+
+        # Center base, nod down
+        self.get_logger().info('Nodding head down...')
+        self.set_joint_positions({
+            'lazy_susan': 512,      # Center
+            'motor_front': 300,     # Pull front down
+            'motor_back_left': 50,  # Less pull at back
+            'motor_back_right': 50
+        })
+        time.sleep(2.0)
+
+        # Tilt head up
+        self.get_logger().info('Tilting head up...')
+        self.set_joint_positions({
+            'lazy_susan': 512,      # Center
+            'motor_front': 20,      # Minimal pull at front
+            'motor_back_left': 250, # More pull at back
+            'motor_back_right': 250
+        })
+        time.sleep(2.0)
+
+        # Combined: turn left and nod
+        self.get_logger().info('Turn left and nod...')
+        self.set_joint_positions({
+            'lazy_susan': 400,      # Turn left
+            'motor_front': 250,     # Nod down
+            'motor_back_left': 80,
+            'motor_back_right': 80
+        })
+        time.sleep(2.0)
+
+        # Return to home
+        self.get_logger().info('Returning to home position...')
+        self.set_joint_positions({
+            'lazy_susan': 512,
+            'motor_front': 0,
+            'motor_back_left': 0,
+            'motor_back_right': 0
+        })
+        time.sleep(2.0)
+
+        self.get_logger().info('Joint control demo complete')
     
     def interactive_mode(self):
         """Interactive control mode."""
@@ -190,23 +269,26 @@ class BlossomExampleClient(Node):
 def main(args=None):
     rclpy.init(args=args)
     client = BlossomExampleClient()
-    
+
     # Run demos
     try:
         # Uncomment the demo you want to run:
-        
-        # Demo 1: Gestures
+
+        # Demo 1: Gestures (pre-recorded sequences)
         # client.demo_gestures()
-        
-        # Demo 2: Behaviors
+
+        # Demo 2: Behaviors (high-level commands)
         # client.demo_behaviors()
-        
-        # Demo 3: Poses
+
+        # Demo 3: Poses (orientation control)
         # client.demo_poses()
-        
+
+        # Demo 4: Direct joint control (low-level motor commands)
+        # client.demo_joints()
+
         # Interactive mode
         client.interactive_mode()
-        
+
     except KeyboardInterrupt:
         pass
     finally:

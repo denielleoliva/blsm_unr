@@ -123,29 +123,53 @@ class BlossomController(Node):
     
     def publish_joint_commands(self):
         """
-        Convert current pose to joint commands for Blossom's tower system.
-        
-        Blossom uses 4 motors in a tower configuration to achieve
-        pitch, yaw, roll, and height control.
+        Convert current pose to joint commands for Blossom's four-motor system.
+
+        Blossom uses 4 motors:
+        - lazy_susan: rotates the entire base (controls yaw/turning)
+          Range: [0, 1023], home position: 512
+        - motor_front: pulls down the front of the head plate
+        - motor_back_left: pulls down the back-left of the head plate
+        - motor_back_right: pulls down the back-right of the head plate
+          Range: [0, 400], 0 = no pull (extended), 400 = max pull (retracted)
         """
-        pitch = self.current_pose['pitch']
-        yaw = self.current_pose['yaw']
-        roll = self.current_pose['roll']
-        height = self.current_pose['height']
-        
-        # Map orientation to tower motor positions
-        # This is a simplified inverse kinematics - adjust based on your robot
-        tower_1 = height + pitch + yaw
-        tower_2 = height + pitch - yaw
-        tower_3 = height - pitch - yaw + roll
-        tower_4 = height - pitch + yaw - roll
-        
+        pitch = self.current_pose['pitch']  # Positive = nod down (front pulls more)
+        yaw = self.current_pose['yaw']      # Positive = turn right
+        height = self.current_pose['height'] # 0.0 to 1.0 (normalized)
+
+        # Lazy susan motor: controls base rotation (yaw)
+        # Map yaw angle to motor range [0, 1023] with center at 512
+        # Assuming yaw is in radians, scale appropriately
+        yaw_scale = 512.0 / math.pi  # Full rotation range
+        lazy_susan = 512.0 + (yaw * yaw_scale)
+        lazy_susan = max(0.0, min(1023.0, lazy_susan))
+
+        # Head plate motors: control pitch (nodding) only
+        # Base position from height (inverted: higher height = less pull)
+        # Map height 0.0-1.0 to pull range 400-0
+        base_pull = 400 * (1.0 - height)
+
+        # Scale factor for pitch effects
+        pitch_scale = 200.0  # How much pitch affects motor difference
+
+        # Calculate motor positions based on pitch only
+        # Nod down (positive pitch): front motor pulls more (higher value)
+        # Nod up (negative pitch): back motors pull more (higher values)
+        motor_front = base_pull + (pitch * pitch_scale)
+        motor_back_left = base_pull - (pitch * pitch_scale / 2)
+        motor_back_right = base_pull - (pitch * pitch_scale / 2)
+
+        # Clamp head plate motor values to limits [0, 400]
+        motor_front = max(0.0, min(400.0, motor_front))
+        motor_back_left = max(0.0, min(400.0, motor_back_left))
+        motor_back_right = max(0.0, min(400.0, motor_back_right))
+
         # Create joint state message
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
-        msg.name = ['tower_1', 'tower_2', 'tower_3', 'tower_4']
-        msg.position = [tower_1, tower_2, tower_3, tower_4]
-        
+        msg.name = ['lazy_susan', 'motor_front', 'motor_back_left', 'motor_back_right']
+        msg.position = [lazy_susan, motor_front, motor_back_left, motor_back_right]
+
         self.joint_cmd_pub.publish(msg)
     
     def behavior_callback(self, msg: String):

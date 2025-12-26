@@ -17,7 +17,7 @@ def generate_launch_description():
     # Declare launch arguments
     port_arg = DeclareLaunchArgument(
         'port',
-        default_value='/dev/ttyACM0',
+        default_value='/dev/ttyUSB0',
         description='Serial port for motor communication'
     )
     

@@ -17,17 +17,25 @@ import time
 
 class GestureServer(Node):
     """Action server for executing gestures on Blossom."""
-    
+
     def __init__(self):
         super().__init__('gesture_server')
-        
+
         # Callback groups for concurrent execution
         self.cb_group = ReentrantCallbackGroup()
-        
+
         # Current execution state
         self.current_goal_handle = None
         self.executing = False
-        
+
+        # Motor position limits
+        self.motor_limits = {
+            'lazy_susan': (0.0, 1023.0),
+            'motor_front': (0.0, 400.0),
+            'motor_back_left': (0.0, 400.0),
+            'motor_back_right': (0.0, 400.0)
+        }
+
         # Subscribers
         self.status_sub = self.create_subscription(
             String,
@@ -36,11 +44,17 @@ class GestureServer(Node):
             10,
             callback_group=self.cb_group
         )
-        
-        # Publisher for sequence commands
+
+        # Publishers
         self.sequence_pub = self.create_publisher(
             String,
             'play_sequence',
+            10
+        )
+
+        self.joint_cmd_pub = self.create_publisher(
+            JointState,
+            'joint_commands',
             10
         )
         
@@ -70,6 +84,40 @@ class GestureServer(Node):
         """Handle cancellation requests."""
         self.get_logger().info('Gesture cancellation requested')
         return CancelResponse.ACCEPT
+
+    def validate_and_clamp_positions(self, joint_names, positions):
+        """
+        Validate and clamp motor positions to safe limits.
+
+        Args:
+            joint_names: List of joint names
+            positions: List of positions corresponding to joint names
+
+        Returns:
+            Tuple of (clamped_positions, warnings) where warnings is a list of warning messages
+        """
+        clamped_positions = []
+        warnings = []
+
+        for name, pos in zip(joint_names, positions):
+            if name in self.motor_limits:
+                min_pos, max_pos = self.motor_limits[name]
+
+                if pos < min_pos or pos > max_pos:
+                    clamped_pos = max(min_pos, min(max_pos, pos))
+                    warnings.append(
+                        f'{name}: {pos:.1f} out of range [{min_pos}, {max_pos}], '
+                        f'clamped to {clamped_pos:.1f}'
+                    )
+                    clamped_positions.append(clamped_pos)
+                else:
+                    clamped_positions.append(pos)
+            else:
+                # Unknown motor, pass through
+                warnings.append(f'{name}: unknown motor, no limits applied')
+                clamped_positions.append(pos)
+
+        return clamped_positions, warnings
     
     async def execute_callback(self, goal_handle):
         """
@@ -99,12 +147,25 @@ class GestureServer(Node):
                     self.executing = False
                     return FollowJointTrajectory.Result()
                 
+                # Validate and clamp positions to safe limits
+                clamped_positions, warnings = self.validate_and_clamp_positions(
+                    trajectory.joint_names,
+                    point.positions
+                )
+
+                # Log any warnings
+                for warning in warnings:
+                    self.get_logger().warn(warning)
+
                 # Create and publish joint command
                 joint_msg = JointState()
                 joint_msg.header.stamp = self.get_clock().now().to_msg()
                 joint_msg.name = trajectory.joint_names
-                joint_msg.position = list(point.positions)
-                
+                joint_msg.position = clamped_positions
+
+                # Publish to joint commands topic
+                self.joint_cmd_pub.publish(joint_msg)
+
                 # Calculate time to next point
                 if i < len(trajectory.points) - 1:
                     next_time = trajectory.points[i + 1].time_from_start

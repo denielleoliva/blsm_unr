@@ -28,6 +28,7 @@ setup(
             'sequence_player = openhmi_blossom.sequence_player:main',
             'motor_interface = openhmi_blossom.motor_interface:main',
             'gesture_server = openhmi_blossom.gesture_server:main',
+            'example_client = examples.example_client:main',
         ],
     },
 )

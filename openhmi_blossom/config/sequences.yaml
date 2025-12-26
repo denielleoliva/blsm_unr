@@ -1,133 +1,235 @@
 # Example gesture sequences for Blossom
+# Position values:
+# - lazy_susan: [0, 1023], home = 512 (center)
+# - motor_front, motor_back_left, motor_back_right: [0, 400]
+#   where 0 = no pull (extended), 400 = max pull (retracted)
 
 # Nodding "yes" gesture
-yes:
+"yes":
   keyframes:
     - joints:
-        tower_1: 0.5
-        tower_2: 0.5
-        tower_3: -0.3
-        tower_4: -0.3
+        lazy_susan: 512       # Stay centered
+        motor_front: 200      # Moderate pull
+        motor_back_left: 100  # Less pull
+        motor_back_right: 100 # Less pull
       duration: 0.3
     - joints:
-        tower_1: 0.5
-        tower_2: 0.5
-        tower_3: 0.3
-        tower_4: 0.3
+        lazy_susan: 512       # Stay centered
+        motor_front: 300      # More pull (nod down)
+        motor_back_left: 50   # Minimal pull
+        motor_back_right: 50  # Minimal pull
       duration: 0.3
     - joints:
-        tower_1: 0.5
-        tower_2: 0.5
-        tower_3: -0.3
-        tower_4: -0.3
+        lazy_susan: 512       # Stay centered
+        motor_front: 200      # Moderate pull
+        motor_back_left: 100  # Less pull
+        motor_back_right: 100 # Less pull
       duration: 0.3
     - joints:
-        tower_1: 0.5
-        tower_2: 0.5
-        tower_3: 0.0
-        tower_4: 0.0
+        lazy_susan: 512       # Stay centered
+        motor_front: 100      # Return to neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
       duration: 0.3
 
 # Shaking "no" gesture
-no:
+"no":
   keyframes:
     - joints:
-        tower_1: 0.5
-        tower_2: 0.3
-        tower_3: 0.5
-        tower_4: 0.3
+        lazy_susan: 400       # Turn left
+        motor_front: 100      # Neutral head
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
       duration: 0.3
     - joints:
-        tower_1: 0.3
-        tower_2: 0.5
-        tower_3: 0.3
-        tower_4: 0.5
+        lazy_susan: 624       # Turn right
+        motor_front: 100      # Neutral head
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
       duration: 0.3
     - joints:
-        tower_1: 0.5
-        tower_2: 0.3
-        tower_3: 0.5
-        tower_4: 0.3
+        lazy_susan: 400       # Turn left
+        motor_front: 100      # Neutral head
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
       duration: 0.3
     - joints:
-        tower_1: 0.5
-        tower_2: 0.5
-        tower_3: 0.5
-        tower_4: 0.5
+        lazy_susan: 512       # Return to center
+        motor_front: 100      # Neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
       duration: 0.3
 
 # Idle breathing animation
 idle:
   keyframes:
     - joints:
-        tower_1: 0.5
-        tower_2: 0.5
-        tower_3: 0.5
-        tower_4: 0.5
+        lazy_susan: 512       # Stay centered
+        motor_front: 80       # Minimal pull
+        motor_back_left: 80   # Minimal pull
+        motor_back_right: 80  # Minimal pull
       duration: 2.0
     - joints:
-        tower_1: 0.55
-        tower_2: 0.55
-        tower_3: 0.55
-        tower_4: 0.55
+        lazy_susan: 512       # Stay centered
+        motor_front: 120      # Slightly more pull (breathe in)
+        motor_back_left: 120  # Slightly more pull
+        motor_back_right: 120 # Slightly more pull
       duration: 2.0
     - joints:
-        tower_1: 0.5
-        tower_2: 0.5
-        tower_3: 0.5
-        tower_4: 0.5
+        lazy_susan: 512       # Stay centered
+        motor_front: 80       # Return (breathe out)
+        motor_back_left: 80   # Return
+        motor_back_right: 80  # Return
       duration: 2.0
 
 # Happy gesture
 happy:
   keyframes:
     - joints:
-        tower_1: 0.6
-        tower_2: 0.6
-        tower_3: 0.4
-        tower_4: 0.4
+        lazy_susan: 512       # Stay centered
+        motor_front: 50       # Light pull
+        motor_back_left: 50   # Light pull
+        motor_back_right: 50  # Light pull
       duration: 0.5
     - joints:
-        tower_1: 0.7
-        tower_2: 0.7
-        tower_3: 0.5
-        tower_4: 0.5
+        lazy_susan: 512       # Stay centered
+        motor_front: 20       # Very light pull (head up)
+        motor_back_left: 20   # Very light pull
+        motor_back_right: 20  # Very light pull
       duration: 0.3
     - joints:
-        tower_1: 0.6
-        tower_2: 0.6
-        tower_3: 0.4
-        tower_4: 0.4
+        lazy_susan: 512       # Stay centered
+        motor_front: 50       # Back to light pull
+        motor_back_left: 50   # Light pull
+        motor_back_right: 50  # Light pull
       duration: 0.3
+
+# Sad gesture
+sad:
+  keyframes:
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 150      # Pull head down
+        motor_back_left: 100  # Moderate pull
+        motor_back_right: 100 # Moderate pull
+      duration: 0.8
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 200      # More pull (head down more)
+        motor_back_left: 80   # Less pull
+        motor_back_right: 80  # Less pull
+      duration: 1.0
 
 # Look left
 look_left:
   keyframes:
     - joints:
-        tower_1: 0.6
-        tower_2: 0.4
-        tower_3: 0.6
-        tower_4: 0.4
+        lazy_susan: 400       # Turn base left
+        motor_front: 100      # Neutral head
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
       duration: 0.5
     - joints:
-        tower_1: 0.5
-        tower_2: 0.5
-        tower_3: 0.5
-        tower_4: 0.5
+        lazy_susan: 512       # Return to center
+        motor_front: 100      # Neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
       duration: 0.5
 
 # Look right
 look_right:
   keyframes:
     - joints:
-        tower_1: 0.4
-        tower_2: 0.6
-        tower_3: 0.4
-        tower_4: 0.6
+        lazy_susan: 624       # Turn base right
+        motor_front: 100      # Neutral head
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
       duration: 0.5
     - joints:
-        tower_1: 0.5
-        tower_2: 0.5
-        tower_3: 0.5
-        tower_4: 0.5
+        lazy_susan: 512       # Return to center
+        motor_front: 100      # Neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
       duration: 0.5
+
+# Look up
+look_up:
+  keyframes:
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 20       # Minimal pull (head tilts up)
+        motor_back_left: 250  # More pull at back
+        motor_back_right: 250 # More pull at back
+      duration: 0.5
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 100      # Return to neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.5
+
+# Look down
+look_down:
+  keyframes:
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 300      # More pull (head tilts down)
+        motor_back_left: 50   # Less pull at back
+        motor_back_right: 50  # Less pull at back
+      duration: 0.5
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 100      # Return to neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.5
+
+# Excited gesture
+excited:
+  keyframes:
+    - joints:
+        lazy_susan: 450       # Quick left
+        motor_front: 50       # Light pull
+        motor_back_left: 50   # Light pull
+        motor_back_right: 50  # Light pull
+      duration: 0.15
+    - joints:
+        lazy_susan: 574       # Quick right
+        motor_front: 30       # Very light pull
+        motor_back_left: 30   # Very light pull
+        motor_back_right: 30  # Very light pull
+      duration: 0.15
+    - joints:
+        lazy_susan: 450       # Quick left
+        motor_front: 50       # Light pull
+        motor_back_left: 50   # Light pull
+        motor_back_right: 50  # Light pull
+      duration: 0.15
+    - joints:
+        lazy_susan: 512       # Center
+        motor_front: 100      # Neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.2
+
+# Calm gesture
+calm:
+  keyframes:
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 100      # Neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 1.5
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 120      # Slight pull
+        motor_back_left: 120  # Slight pull
+        motor_back_right: 120 # Slight pull
+      duration: 1.5
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 100      # Return
+        motor_back_left: 100  # Return
+        motor_back_right: 100 # Return
+      duration: 1.5
