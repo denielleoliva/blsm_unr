@@ -6,8 +6,9 @@ Get your Blossom robot running with ROS 2 in minutes!
 
 - Ubuntu 22.04 or later
 - ROS 2 Humble, Iron, or Jazzy installed
-- Blossom robot assembled with Dynamixel motors
-- USB connection to motors
+- Blossom robot assembled with **Dynamixel XL-320** motors
+- USB connection to motors (U2D2 or USB2Dynamixel adapter)
+- Power supply: **6-8.4V** for XL-320 (NOT 12V!)
 
 ## 5-Minute Setup
 
@@ -21,6 +22,9 @@ cd ~/blossom_ws/src
 # Clone repository
 git clone <repository_url> openhmi_blossom
 
+# Install Dynamixel SDK
+pip install dynamixel-sdk pyyaml
+
 # Build
 cd ~/blossom_ws
 colcon build
@@ -33,8 +37,8 @@ source install/setup.bash
 # Add yourself to dialout group (requires logout/login)
 sudo usermod -a -G dialout $USER
 
-# OR temporarily:
-sudo chmod 666 /dev/ttyACM0
+# OR temporarily for XL-320 (usually ttyUSB0):
+sudo chmod 666 /dev/ttyUSB0
 ```
 
 ### 3. Launch Robot (1 minute)
@@ -63,25 +67,26 @@ ros2 topic pub /play_sequence std_msgs/msg/String "data: 'happy'" --once
 
 ## Common First-Time Issues
 
-### Issue: "Cannot open /dev/ttyACM0"
+### Issue: "Cannot open /dev/ttyUSB0"
 **Solution:**
 ```bash
-# Check what port your device is on
-ls /dev/tty*
-
-# If it's ttyUSB0 instead:
-ros2 launch openhmi_blossom blossom.launch.py port:=/dev/ttyUSB0
+# Check what port your device is on (XL-320 usually shows as ttyUSB0)
+ls /dev/ttyUSB*
 
 # Fix permissions
-sudo chmod 666 /dev/ttyACM0
+sudo chmod 666 /dev/ttyUSB0
+
+# If port is different, specify it:
+ros2 launch openhmi_blossom blossom.launch.py port:=/dev/ttyUSB1
 ```
 
 ### Issue: Motors not moving
 **Solution:**
-1. Check power supply to motors
-2. Verify motors are connected
-3. Test with Dynamixel Wizard first
-4. Check motor IDs in config file
+1. **Check power supply**: XL-320 requires 6-8.4V (NOT 12V!)
+2. **Verify motors are connected** in daisy-chain
+3. **Test with Dynamixel Wizard first**
+4. **Check motor IDs**: Run `python3 scripts/scan_motors.py` to find IDs
+5. **Verify moving speed is set**: XL-320 won't move if speed is 0
 
 ### Issue: "Package not found"
 **Solution:**

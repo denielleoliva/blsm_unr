@@ -40,7 +40,8 @@ This package provides a ROS 2 interface for the Blossom robot, a handcrafted ope
 
 - ROS 2 (Humble, Iron, or Jazzy)
 - Python 3.8+
-- PySerial
+- Dynamixel SDK (`pip install dynamixel-sdk`)
+- PyYAML (`pip install pyyaml`)
 
 ### Build Instructions
 
@@ -63,7 +64,7 @@ rosdep install --from-paths src --ignore-src -r -y
 
 4. Install Python dependencies:
 ```bash
-pip install pyserial pyyaml
+pip install dynamixel-sdk pyyaml
 ```
 
 5. Build the workspace:
@@ -77,17 +78,25 @@ source install/setup.bash
 
 ### Motor Configuration
 
-The Blossom robot uses 4 Dynamixel servo motors in a tower configuration:
-- Tower 1 (ID: 1)
-- Tower 2 (ID: 2)
-- Tower 3 (ID: 3)
-- Tower 4 (ID: 4)
+The Blossom robot uses 4 **Dynamixel XL-320** servo motors:
+- Motor 1 (ID: 1) - Lazy Susan (base rotation)
+- Motor 2 (ID: 2) - Front head plate
+- Motor 3 (ID: 3) - Back-left head plate
+- Motor 4 (ID: 4) - Back-right head plate
+
+**XL-320 Specifications:**
+- Protocol: 2.0
+- Position Range: 0-1023 (10-bit resolution, not 12-bit)
+- Baudrate: 1000000 (1 Mbps)
+- Voltage: 6-8.4V
+- Communication: TTL Half-Duplex
 
 ### Wiring
 
-1. Connect Dynamixel motors in daisy-chain configuration
-2. Connect the USB2Dynamixel adapter to your computer
-3. Ensure proper power supply (typically 12V for MX series servos)
+1. Connect XL-320 motors in daisy-chain configuration
+2. Connect the USB2Dynamixel or U2D2 adapter to your computer
+3. Ensure proper power supply (**6-8.4V** for XL-320, NOT 12V!)
+4. Default port is usually `/dev/ttyUSB0` (not `/dev/ttyACM0`)
 
 ### Port Permissions
 
@@ -96,8 +105,8 @@ Grant permission to access the serial port:
 sudo usermod -a -G dialout $USER
 # Log out and back in for changes to take effect
 
-# Or temporarily:
-sudo chmod 666 /dev/ttyACM0
+# Or temporarily for /dev/ttyUSB0:
+sudo chmod 666 /dev/ttyUSB0
 ```
 
 ## Usage
@@ -164,8 +173,8 @@ Low-level interface to Dynamixel motors.
 - `/joint_states` (sensor_msgs/JointState) - Current joint states
 
 **Parameters:**
-- `port` (string, default: "/dev/ttyACM0") - Serial port
-- `baudrate` (int, default: 1000000) - Communication baudrate
+- `port` (string, default: "/dev/ttyUSB0") - Serial port for XL-320 motors
+- `baudrate` (int, default: 1000000) - Communication baudrate (1 Mbps for XL-320)
 - `motor_config` (string) - Path to motor configuration file
 - `publish_rate` (double, default: 50.0) - Joint state publishing rate (Hz)
 
@@ -223,16 +232,16 @@ Edit `config/motor_config.yaml` to customize motor settings:
 
 ```yaml
 motor_ids:
-  tower_1: 1
-  tower_2: 2
-  tower_3: 3
-  tower_4: 4
+  lazy_susan: 1        # Base rotation motor
+  motor_front: 2       # Front head plate motor
+  motor_back_left: 3   # Back-left head plate motor
+  motor_back_right: 4  # Back-right head plate motor
 
 motor_limits:
-  tower_1: [0, 4095]
-  tower_2: [0, 4095]
-  tower_3: [0, 4095]
-  tower_4: [0, 4095]
+  lazy_susan: [0, 1023]      # XL-320 full range
+  motor_front: [0, 400]      # Head plate pull range
+  motor_back_left: [0, 400]  # Head plate pull range
+  motor_back_right: [0, 400] # Head plate pull range
 ```
 
 ### Creating Gesture Sequences
@@ -321,11 +330,11 @@ yes:
 ### Cannot open serial port
 
 ```bash
-# Check port exists
-ls -l /dev/ttyACM*
+# Check port exists (XL-320 usually shows as ttyUSB0)
+ls -l /dev/ttyUSB*
 
 # Check permissions
-sudo chmod 666 /dev/ttyACM0
+sudo chmod 666 /dev/ttyUSB0
 
 # Add user to dialout group
 sudo usermod -a -G dialout $USER
@@ -333,10 +342,12 @@ sudo usermod -a -G dialout $USER
 
 ### Motors not responding
 
-1. Check power supply to motors
-2. Verify baudrate matches motor configuration
-3. Test motors with Dynamixel Wizard
-4. Check motor IDs in configuration file
+1. **Check power supply**: XL-320 requires 6-8.4V (NOT 12V!)
+2. **Verify baudrate**: Should be 1000000 for XL-320
+3. **Check Protocol**: XL-320 uses Protocol 2.0
+4. **Test with Dynamixel Wizard**: Verify motors work before using ROS
+5. **Scan for motors**: Run `scripts/scan_motors.py` to find motor IDs
+6. **Verify position range**: XL-320 uses 0-1023, not 0-4095
 
 ### Sequences not playing
 
