@@ -1,0 +1,27 @@
+# Nodding "yes" gesture
+"yes":
+  keyframes:
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 200      # Moderate pull
+        motor_back_left: 100  # Less pull
+        motor_back_right: 100 # Less pull
+      duration: 0.3
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 300      # More pull (nod down)
+        motor_back_left: 50   # Minimal pull
+        motor_back_right: 50  # Minimal pull
+      duration: 0.3
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 200      # Moderate pull
+        motor_back_left: 100  # Less pull
+        motor_back_right: 100 # Less pull
+      duration: 0.3
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 100      # Return to neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.3
