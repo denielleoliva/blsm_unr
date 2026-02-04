@@ -7,7 +7,7 @@ This helps identify the correct settings when motors aren't responding.
 from dynamixel_sdk import *
 import time
 
-DEVICENAME = '/dev/ttyUSB0'
+DEVICENAME = '/dev/ttyUSB1'
 
 # Common baudrates for Dynamixel motors
 BAUDRATES = [
