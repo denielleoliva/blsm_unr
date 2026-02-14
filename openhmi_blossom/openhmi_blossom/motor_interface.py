@@ -146,10 +146,19 @@ class MotorInterface(Node):
         """Initialize all motors on startup."""
         for name, motor_id in self.motor_ids.items():
             try:
+                
                 # Set moving speed for each motor
                 dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
                     self.port_handler, motor_id, self.ADDR_MOVING_SPEED, 200
                 )
+                
+                if (dxl_comm_result != COMM_SUCCESS) or (dxl_error != 0):
+                    self.get_logger().error(
+                        f'Failed to set moving speed for motor {name} (ID: {motor_id}): '
+                        f'{self.packet_handler.getTxRxResult(dxl_comm_result)}, '
+                        f'{self.packet_handler.getRxPacketError(dxl_error)}'
+                    )
+                    continue
 
                 # Read motor position limits from memory locations 6 and 8
                 dxl_min_position, dxl_comm_result, dxl_error = self.packet_handler.read2ByteTxRx(
@@ -158,11 +167,27 @@ class MotorInterface(Node):
                 dxl_max_position, dxl_comm_result, dxl_error = self.packet_handler.read2ByteTxRx(
                     self.port_handler, motor_id, 8  # Address for CCW Angle Limit (max position)
                 )
+                
+                if (dxl_comm_result != COMM_SUCCESS) or (dxl_error != 0):
+                    self.get_logger().error(
+                        f'Failed to read position limits for motor {name} (ID: {motor_id}): '
+                        f'{self.packet_handler.getTxRxResult(dxl_comm_result)}, '
+                        f'{self.packet_handler.getRxPacketError(dxl_error)}'
+                    )
+                    continue
 
                 # Enable torque
                 dxl_comm_result, dxl_error = self.packet_handler.write1ByteTxRx(
-                    self.port_handler, motor_id, self.ADDR_TORQUE_ENABLE, 1
+                   self.port_handler, motor_id, self.ADDR_TORQUE_ENABLE, 1
                 )
+                
+                if (dxl_comm_result != COMM_SUCCESS) or (dxl_error != 0):
+                    self.get_logger().error(
+                        f'Failed to enable torque for motor {name} (ID: {motor_id}): '
+                        f'{self.packet_handler.getTxRxResult(dxl_comm_result)}, '
+                        f'{self.packet_handler.getRxPacketError(dxl_error)}'
+                    )
+                    continue
 
                 if dxl_comm_result == COMM_SUCCESS:
                     # Store the read position limits as the real position limits

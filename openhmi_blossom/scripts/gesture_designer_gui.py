@@ -103,7 +103,12 @@ class BlossomGestureDesigner(QMainWindow):
         self.sequence_list = QListWidget()
         self.sequence_list.itemClicked.connect(self.load_sequence)
         layout.addWidget(self.sequence_list)
-        
+
+        # Load from service button
+        load_service_btn = QPushButton('Load from Robot')
+        load_service_btn.clicked.connect(self.load_sequences_from_service)
+        layout.addWidget(load_service_btn)
+
         # New sequence button
         new_btn = QPushButton('New Sequence')
         new_btn.clicked.connect(self.new_sequence)
@@ -268,7 +273,13 @@ class BlossomGestureDesigner(QMainWindow):
         stop_btn = QPushButton('⏹ Stop')
         stop_btn.clicked.connect(self.stop_playback)
         playback_layout.addWidget(stop_btn)
-        
+
+        # Register with robot button
+        register_btn = QPushButton('📤 Register with Robot')
+        register_btn.clicked.connect(self.register_sequence_with_robot)
+        register_btn.setStyleSheet('background-color: #2196F3; color: white;')
+        playback_layout.addWidget(register_btn)
+
         # Playback speed
         speed_layout = QHBoxLayout()
         speed_layout.addWidget(QLabel('Speed:'))
@@ -411,6 +422,31 @@ class BlossomGestureDesigner(QMainWindow):
         }
         self.set_motor_positions(positions)
     
+    def load_sequences_from_service(self):
+        """Load sequences from the robot's list_sequences service"""
+        sequences = self.ros_node.get_sequences_from_service()
+        if sequences:
+            self.sequences.update(sequences)
+            self.refresh_sequence_list()
+            self.statusBar().showMessage(f'Loaded {len(sequences)} sequences from robot')
+        else:
+            QMessageBox.warning(self, 'Failed to Load', 'Could not retrieve sequences from robot service')
+
+    def register_sequence_with_robot(self):
+        """Register current sequence with the robot"""
+        if not self.current_sequence:
+            QMessageBox.warning(self, 'No Sequence', 'Please select a sequence to register.')
+            return
+
+        sequence_data = self.sequences[self.current_sequence]
+        success = self.ros_node.register_sequence(self.current_sequence, sequence_data)
+
+        if success:
+            self.statusBar().showMessage(f'Registered sequence "{self.current_sequence}" with robot')
+            QMessageBox.information(self, 'Success', f'Sequence "{self.current_sequence}" has been registered with the robot.')
+        else:
+            QMessageBox.critical(self, 'Failed', f'Failed to register sequence "{self.current_sequence}" with robot.')
+
     def new_sequence(self):
         """Create a new empty sequence"""
         name = self.name_input.text() or 'new_sequence'
@@ -557,8 +593,12 @@ class BlossomGestureDesigner(QMainWindow):
         if not self.current_sequence:
             self.yaml_preview.clear()
             return
-        
-        sequence_data = {self.current_sequence: self.sequences[self.current_sequence]}
+
+        # Create clean copy without internal fields
+        seq_data = self.sequences[self.current_sequence].copy()
+        seq_data.pop('_source', None)  # Remove metadata field used for tracking origin
+
+        sequence_data = {self.current_sequence: seq_data}
         yaml_str = yaml.dump(sequence_data, default_flow_style=False, sort_keys=False)
         self.yaml_preview.setPlainText(yaml_str)
     
@@ -629,9 +669,20 @@ class BlossomGestureDesigner(QMainWindow):
         if not self.current_sequence:
             QMessageBox.warning(self, 'No Sequence', 'Please select a sequence to play.')
             return
-        
-        self.ros_node.play_sequence(self.current_sequence)
-        self.statusBar().showMessage(f'Playing sequence: {self.current_sequence}')
+
+        # Get loop count from combo box
+        loop_text = self.loop_combo.currentText()
+        if loop_text == 'Once':
+            loop_count = 1
+        elif loop_text == '3 times':
+            loop_count = 3
+        elif loop_text == '5 times':
+            loop_count = 5
+        else:  # 'Infinite'
+            loop_count = -1
+
+        self.ros_node.play_sequence(self.current_sequence, loop_count)
+        self.statusBar().showMessage(f'Playing sequence: {self.current_sequence} ({loop_text})')
     
     def stop_playback(self):
         """Stop current playback"""
@@ -704,7 +755,11 @@ class DesignerNode(Node):
         
         # Service calls
         self.joint_limits_srv = self.create_client(Trigger, 'list_joint_limits')
-        
+        self.list_sequences_srv = self.create_client(Trigger, 'list_sequences')
+
+        # Publisher for registering sequences (YAML/JSON)
+        self.register_sequence_pub = self.create_publisher(String, 'register_sequence', 10)
+
         self.get_logger().info('Designer node initialized')
         
         # Stop idle animation on startup
@@ -750,11 +805,18 @@ class DesignerNode(Node):
         self.joint_pub.publish(msg)
         self.get_logger().info(f'Sent: {msg.name} = {msg.position}')
     
-    def play_sequence(self, sequence_name):
-        """Trigger sequence playback"""
+    def play_sequence(self, sequence_name, loop_count=1):
+        """Trigger sequence playback with optional looping"""
+        # Format: "sequence_name" or "sequence_name|loop_count" for looping
+        if loop_count == 1:
+            msg_data = sequence_name
+        else:
+            msg_data = f"{sequence_name}|{loop_count}"
+
         msg = String()
-        msg.data = sequence_name
+        msg.data = msg_data
         self.sequence_pub.publish(msg)
+        self.get_logger().info(f'Playing sequence: {sequence_name} (loop: {loop_count})')
     
     def stop_playback(self):
         """Stop current playback"""
@@ -783,6 +845,61 @@ class DesignerNode(Node):
                 return None
         else:
             self.get_logger().error('Joint limits service not available')
+            return None
+        
+    def register_sequence(self, name, sequence_data):
+        """Register a sequence with the sequence player via YAML."""
+        try:
+            # Convert sequence to YAML format
+            sequence_dict = {name: sequence_data}
+            yaml_str = yaml.dump(sequence_dict, default_flow_style=False, sort_keys=False)
+
+            # Publish to register_sequence topic
+            msg = String()
+            msg.data = yaml_str
+            self.register_sequence_pub.publish(msg)
+            self.get_logger().info(f'Registered sequence: {name}')
+            return True
+        except Exception as e:
+            self.get_logger().error(f'Failed to register sequence: {e}')
+            return False
+
+    def get_sequences_from_service(self):
+        """Get available sequences from the robot service"""
+        try:
+            if self.list_sequences_srv.wait_for_service(timeout_sec=2.0):
+                request = Trigger.Request()
+                future = self.list_sequences_srv.call_async(request)
+                rclpy.spin_until_future_complete(self, future)
+
+                if future.result() is not None:
+                    response = future.result()
+                    # Parse the message which contains "Available sequences: seq1, seq2, seq3"
+                    message = response.message
+                    if 'Available sequences:' in message:
+                        sequences_str = message.split('Available sequences:')[1].strip()
+                        sequence_names = [s.strip() for s in sequences_str.split(',')]
+                        self.get_logger().info(f'Retrieved sequences: {sequence_names}')
+
+                        # Create placeholder sequence data for each sequence
+                        sequences_dict = {}
+                        for seq_name in sequence_names:
+                            sequences_dict[seq_name] = {
+                                'keyframes': [],
+                                '_source': 'robot_service'
+                            }
+                        return sequences_dict
+                    else:
+                        self.get_logger().error(f'Unexpected service response format: {message}')
+                        return None
+                else:
+                    self.get_logger().error('Failed to get sequences from service')
+                    return None
+            else:
+                self.get_logger().error('list_sequences service not available')
+                return None
+        except Exception as e:
+            self.get_logger().error(f'Error calling list_sequences service: {e}')
             return None
 
 
