@@ -24,6 +24,7 @@ from PyQt5.QtGui import QFont
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_srvs.srv import Trigger
 from sensor_msgs.msg import JointState
 
 
@@ -156,8 +157,13 @@ class BlossomGestureDesigner(QMainWindow):
         motor_layout = QVBoxLayout()
         
         self.motor_controls = {}
+        self.joint_limits = self.ros_node.get_joint_limits() or self.motor_ranges  # Use service limits if available
+        
         
         for motor_name, (min_val, max_val, default) in self.motor_ranges.items():
+            # Override with joint limits if available
+            if motor_name in self.joint_limits:
+                min_val, max_val = self.joint_limits[motor_name]
             motor_layout.addWidget(self.create_motor_control(motor_name, min_val, max_val, default))
         
         motor_group.setLayout(motor_layout)
@@ -696,6 +702,9 @@ class DesignerNode(Node):
         self.sequence_pub = self.create_publisher(String, 'play_sequence', 10)
         self.behavior_pub = self.create_publisher(String, 'behavior_command', 10)
         
+        # Service calls
+        self.joint_limits_srv = self.create_client(Trigger, 'list_joint_limits')
+        
         self.get_logger().info('Designer node initialized')
         
         # Stop idle animation on startup
@@ -751,6 +760,30 @@ class DesignerNode(Node):
         """Stop current playback"""
         # Could implement stop command if needed
         pass
+    
+    def get_joint_limits(self):
+        """Get joint limits from robot"""
+        if self.joint_limits_srv.wait_for_service(timeout_sec=1.0):
+            request = Trigger.Request()
+            future = self.joint_limits_srv.call_async(request)
+            rclpy.spin_until_future_complete(self, future)
+            if future.result() is not None:
+                # decode response.message += f'{nl}{name}: {limits[0]} - {limits[1]}' into dictionary
+                limits_dict = {}
+                for line in future.result().message.splitlines():
+                    if ': ' in line:
+                        name, limits = line.split(': ')
+                        min_val, max_val = limits.split(' - ')
+                        limits_dict[name.strip()] = (int(min_val), int(max_val))
+                
+                self.get_logger().info('Joint limits:\n' + future.result().message)
+                return limits_dict
+            else:
+                self.get_logger().error('Failed to get joint limits')
+                return None
+        else:
+            self.get_logger().error('Joint limits service not available')
+            return None
 
 
 def main():
