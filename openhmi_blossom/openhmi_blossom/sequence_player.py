@@ -73,6 +73,12 @@ class SequencePlayer(Node):
             self.list_sequences_callback
         )
         
+        self.create_service(
+            Trigger,
+            'load_sequence',
+            self.load_sequence_callback
+        )
+        
         self.get_logger().info('Sequence player initialized')
         self.get_logger().info(f'Loaded {len(self.sequences)} sequences')
     
@@ -234,7 +240,26 @@ class SequencePlayer(Node):
         response.success = True
         response.message = f'Available sequences: {sequence_list}'
         return response
-
+    
+    def load_sequence_callback(self, request, response):
+        """Service callback to load a dynamic sequence from a payload."""
+        try:
+            # Parse the payload (assuming it's JSON)
+            sequence_data = json.loads(request.payload)
+            
+            # Generate a unique sequence name
+            sequence_name = f"dynamic_{len(self.sequences) + 1}"
+            
+            # Store the sequence
+            self.sequences[sequence_name] = sequence_data
+            
+            response.success = True
+            response.message = f"Sequence loaded: {sequence_name}"
+        except Exception as e:
+            response.success = False
+            response.message = f"Failed to load sequence: {str(e)}"
+        
+        return response
 
 def main(args=None):
     rclpy.init(args=args)
