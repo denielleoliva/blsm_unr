@@ -81,6 +81,7 @@ class MotorInterface(Node):
         # Load motor configuration
         self.motor_ids = {}
         self.motor_limits = {}
+        self.motor_speeds = {}
         if config_file:
             self.load_motor_config(config_file)
         else:
@@ -149,7 +150,7 @@ class MotorInterface(Node):
                 
                 # Set moving speed for each motor
                 dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
-                    self.port_handler, motor_id, self.ADDR_MOVING_SPEED, 200
+                    self.port_handler, motor_id, self.ADDR_MOVING_SPEED, self.motor_speeds.get(name, 200)  # Default speed if not specified
                 )
                 
                 if (dxl_comm_result != COMM_SUCCESS) or (dxl_error != 0):
@@ -206,6 +207,7 @@ class MotorInterface(Node):
                 config = yaml.safe_load(f)
                 self.motor_ids = config.get('motor_ids', {})
                 self.motor_limits = config.get('motor_limits', {})
+                self.motor_speeds = config.get('motor_speeds', {})
                 self.get_logger().info(f'Loaded motor config from {config_file}')
         except Exception as e:
             self.get_logger().error(f'Failed to load config: {e}')
