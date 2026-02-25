@@ -51,6 +51,8 @@ class MotorInterface(Node):
         self.ADDR_GOAL_POSITION = 30
         self.ADDR_MOVING_SPEED = 32
         self.ADDR_PRESENT_POSITION = 37
+        self.ADDR_CW_ANGLE_LIMIT = 6
+        self.ADDR_CCW_ANGLE_LIMIT = 8
 
         # Dynamixel SDK setup
         self.port_handler = None
@@ -94,14 +96,25 @@ class MotorInterface(Node):
                 'motor_back_left': 3,   # Back-left head plate motor
                 'motor_back_right': 4,  # Back-right head plate motor
             }
-            # Motor position limits in controller units
-            # For XL-320: direct mapping to motor units (0-1023)
-            self.motor_limits = {
-                'lazy_susan': (0, 1023),      # Full rotation range
-                'motor_front': (0, 400),      # Head plate pull range
-                'motor_back_left': (0, 400),  # Head plate pull range
-                'motor_back_right': (0, 400), # Head plate pull range
-            }
+            # Read position limits from motor hardware (CW/CCW angle limit registers)
+            self.motor_limits = {}
+            for name, motor_id in self.motor_ids.items():
+                if DYNAMIXEL_SDK_AVAILABLE and self.port_handler:
+                    dxl_min, dxl_comm_result, dxl_error = self.packet_handler.read2ByteTxRx(
+                        self.port_handler, motor_id, self.ADDR_CW_ANGLE_LIMIT
+                    )
+                    dxl_max, dxl_comm_result, dxl_error = self.packet_handler.read2ByteTxRx(
+                        self.port_handler, motor_id, self.ADDR_CCW_ANGLE_LIMIT
+                    )
+                    if dxl_comm_result == COMM_SUCCESS and dxl_error == 0:
+                        self.motor_limits[name] = (dxl_min, dxl_max)
+                        self.get_logger().info(f'Read limits for {name} (ID: {motor_id}): {dxl_min} - {dxl_max}')
+                    else:
+                        self.motor_limits[name] = (0, self.POSITION_RANGE)
+                        self.get_logger().warn(f'Could not read limits for {name} (ID: {motor_id}), using default (0, {self.POSITION_RANGE})')
+                else:
+                    self.motor_limits[name] = (0, self.POSITION_RANGE)
+
 
         # Current joint positions (initialize to home/neutral positions)
         self.current_positions = {}
