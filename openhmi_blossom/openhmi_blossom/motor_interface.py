@@ -7,7 +7,7 @@ Handles low-level communication with XL-320 Dynamixel motors via serial
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64MultiArray
+from std_srvs.srv import Trigger
 import serial
 import yaml
 import time
@@ -82,6 +82,7 @@ class MotorInterface(Node):
         # Load motor configuration
         self.motor_ids = {}
         self.motor_limits = {}
+        self.motor_speeds = {}
         if config_file:
             self.load_motor_config(config_file)
         else:
@@ -130,6 +131,13 @@ class MotorInterface(Node):
             self.joint_command_callback,
             10
         )
+        
+        # Service for listing joint limits
+        self.create_service(
+            Trigger,
+            'list_joint_limits',
+            self.list_joint_limits_callback
+        )
 
         # Timer for publishing joint states
         self.create_timer(1.0 / publish_rate, self.publish_joint_states)
@@ -140,22 +148,58 @@ class MotorInterface(Node):
         """Initialize all motors on startup."""
         for name, motor_id in self.motor_ids.items():
             try:
+                
                 # Set moving speed for each motor
                 dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
-                    self.port_handler, motor_id, self.ADDR_MOVING_SPEED, 200
+                    self.port_handler, motor_id, self.ADDR_MOVING_SPEED, self.motor_speeds.get(name, 200)  # Default speed if not specified
                 )
+                
+                if (dxl_comm_result != COMM_SUCCESS) or (dxl_error != 0):
+                    self.get_logger().error(
+                        f'Failed to set moving speed for motor {name} (ID: {motor_id}): '
+                        f'{self.packet_handler.getTxRxResult(dxl_comm_result)}, '
+                        f'{self.packet_handler.getRxPacketError(dxl_error)}'
+                    )
+                    continue
+
+                # Read motor position limits from memory locations 6 and 8
+                dxl_min_position, dxl_comm_result, dxl_error = self.packet_handler.read2ByteTxRx(
+                    self.port_handler, motor_id, 6  # Address for CW Angle Limit (min position)
+                )
+                dxl_max_position, dxl_comm_result, dxl_error = self.packet_handler.read2ByteTxRx(
+                    self.port_handler, motor_id, 8  # Address for CCW Angle Limit (max position)
+                )
+                
+                if (dxl_comm_result != COMM_SUCCESS) or (dxl_error != 0):
+                    self.get_logger().error(
+                        f'Failed to read position limits for motor {name} (ID: {motor_id}): '
+                        f'{self.packet_handler.getTxRxResult(dxl_comm_result)}, '
+                        f'{self.packet_handler.getRxPacketError(dxl_error)}'
+                    )
+                    continue
 
                 # Enable torque
                 dxl_comm_result, dxl_error = self.packet_handler.write1ByteTxRx(
-                    self.port_handler, motor_id, self.ADDR_TORQUE_ENABLE, 1
+                   self.port_handler, motor_id, self.ADDR_TORQUE_ENABLE, 1
                 )
+                
+                if (dxl_comm_result != COMM_SUCCESS) or (dxl_error != 0):
+                    self.get_logger().error(
+                        f'Failed to enable torque for motor {name} (ID: {motor_id}): '
+                        f'{self.packet_handler.getTxRxResult(dxl_comm_result)}, '
+                        f'{self.packet_handler.getRxPacketError(dxl_error)}'
+                    )
+                    continue
 
                 dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
                     self.port_handler, motor_id, self.ADDR_TORQUE_LIMIT, 800
                 )
 
                 if dxl_comm_result == COMM_SUCCESS:
+                    # Store the read position limits as the real position limits
+                    self.motor_limits[name] = (dxl_min_position, dxl_max_position)
                     self.get_logger().info(f'Initialized motor {name} (ID: {motor_id})')
+                    self.get_logger().info(f'Motor {name} (ID: {motor_id}) position limits: {dxl_min_position} - {dxl_max_position}')
                 else:
                     self.get_logger().warn(f'Failed to initialize motor {name} (ID: {motor_id})')
             except Exception as e:
@@ -168,6 +212,7 @@ class MotorInterface(Node):
                 config = yaml.safe_load(f)
                 self.motor_ids = config.get('motor_ids', {})
                 self.motor_limits = config.get('motor_limits', {})
+                self.motor_speeds = config.get('motor_speeds', {})
                 self.get_logger().info(f'Loaded motor config from {config_file}')
                 
         except Exception as e:
@@ -179,7 +224,25 @@ class MotorInterface(Node):
             if name in self.motor_ids and i < len(msg.position):
                 motor_id = self.motor_ids[name]
                 position = msg.position[i]
+                
+                # check if mempory 50 Hardware Error Status is in error state, if so, 
+                # skip sending command to motor and queue a restart of the motor interface node to clear the buffer
+                dxl_hw_error_status, dxl_comm_result, dxl_error = self.packet_handler.read1ByteTxRx(
+                    self.port_handler, motor_id, 50
+                )
 
+                if dxl_comm_result != COMM_SUCCESS or dxl_hw_error_status != 0:
+                    self.get_logger().error(f'Motor {motor_id} hardware error status: {dxl_hw_error_status}')
+                    return
+                # Read overload status from address 50 (Present Load)
+                dxl_present_load, dxl_comm_result, dxl_error = self.packet_handler.read1ByteTxRx(
+                    self.port_handler, motor_id, 50
+                )
+
+                if dxl_comm_result != COMM_SUCCESS or dxl_present_load > 800:  # Threshold can be adjusted
+                    self.get_logger().warn(f'Motor {motor_id} overloaded, skipping command')
+                    return
+                
                 # Convert position to motor units (0-1023 for XL-320)
                 motor_position = self.position_to_motor_units(name, position)
 
@@ -189,34 +252,20 @@ class MotorInterface(Node):
 
     def position_to_motor_units(self, joint_name: str, position: float) -> int:
         """
-        Convert joint position from controller units to XL-320 motor units.
+        Convert joint position from controller units to motor units.
+        Controller position is already in the motor's native coordinate system.
 
         Args:
             joint_name: Name of the joint
-            position: Position value from controller:
-                      - lazy_susan: [0, 1023]
-                      - head motors: [0, 400]
+            position: Position value from controller (in motor's limit range)
 
         Returns:
-            Motor position in XL-320 units (0-1023)
+            Motor position (clamped to motor's limits)
         """
         limits = self.motor_limits.get(joint_name, (0, 1023))
 
-        # Clamp to controller limits
-        clamped_position = max(limits[0], min(limits[1], position))
-
-        # Map controller range to XL-320 range (0-1023)
-        controller_range = limits[1] - limits[0]
-        if controller_range > 0:
-            normalized = (clamped_position - limits[0]) / controller_range
-        else:
-            normalized = 0.0
-
-        # Scale to XL-320 motor units (0-1023)
-        motor_pos = int(normalized * self.POSITION_RANGE)
-
-        # Clamp to XL-320 limits
-        motor_pos = max(0, min(self.POSITION_RANGE, motor_pos))
+        # Clamp to motor's defined limits and convert to int
+        motor_pos = max(limits[0], min(limits[1], int(position)))
 
         return motor_pos
 
@@ -245,7 +294,7 @@ class MotorInterface(Node):
                     f'{self.packet_handler.getTxRxResult(dxl_comm_result)}'
                 )
             elif dxl_error != 0:
-                self.get_logger().warn(
+                self.get_logger().error(
                     f'Motor {motor_id} error: '
                     f'{self.packet_handler.getRxPacketError(dxl_error)}'
                 )
@@ -272,27 +321,18 @@ class MotorInterface(Node):
 
     def motor_units_to_controller(self, joint_name: str, motor_position: int) -> float:
         """
-        Convert XL-320 motor units (0-1023) back to controller units.
+        Convert motor position back to controller units.
+        Motor position is already in the motor's native coordinate system.
 
         Args:
             joint_name: Name of the joint
-            motor_position: Position in XL-320 units (0-1023)
+            motor_position: Position in motor's native units
 
         Returns:
-            Position in controller units:
-            - lazy_susan: [0, 1023]
-            - head motors: [0, 400]
+            Position in controller units (same as motor's native range)
         """
-        limits = self.motor_limits.get(joint_name, (0, 1023))
-
-        # Normalize from XL-320 range
-        normalized = motor_position / float(self.POSITION_RANGE)
-
-        # Scale to controller range
-        controller_range = limits[1] - limits[0]
-        controller_pos = limits[0] + (normalized * controller_range)
-
-        return controller_pos
+        # Motor position is already in the correct coordinate system
+        return float(motor_position)
 
     def destroy_node(self):
         """Clean up resources."""
@@ -309,6 +349,17 @@ class MotorInterface(Node):
             self.port_handler.closePort()
             self.get_logger().info('Closed Dynamixel port')
         super().destroy_node()
+        
+    def list_joint_limits_callback(self, request, response):
+        """Service callback to list joint limits."""
+        # List limits for all joints
+        limits_info = {name: self.motor_limits.get(name, (0, 1023)) for name in self.motor_ids.keys()}
+            
+        for name, limits in limits_info.items():
+            nl = '\n' if response.message else ''
+            response.message += f'{nl}{name}: {limits[0]} - {limits[1]}'
+        response.success = True
+        return response
 
 
 def main(args=None):

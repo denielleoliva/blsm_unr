@@ -24,7 +24,7 @@ home_positions:
 
 # Motor speed settings (0-1023 for Dynamixel)
 motor_speeds:
-  lazy_susan: 256         # Moderate speed for base rotation
+  lazy_susan: 512         # Moderate speed for base rotation
   motor_front: 512        # Medium speed for head movements
   motor_back_left: 512    # Medium speed for head movements
   motor_back_right: 512   # Medium speed for head movements

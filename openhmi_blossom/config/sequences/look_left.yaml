@@ -1,0 +1,15 @@
+# Look left
+look_left:
+  keyframes:
+    - joints:
+        lazy_susan: 400       # Turn base left
+        motor_front: 100      # Neutral head
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.5
+    - joints:
+        lazy_susan: 512       # Return to center
+        motor_front: 100      # Neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.5
