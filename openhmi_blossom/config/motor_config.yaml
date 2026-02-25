@@ -18,9 +18,9 @@ motor_limits:
 # Home positions (neutral stance in controller units)
 home_positions:
   lazy_susan: 512         # Center position for base rotation
-  motor_front: 0          # No pull (extended)
-  motor_back_left: 0      # No pull (extended)
-  motor_back_right: 0     # No pull (extended)
+  motor_front: 140          # No pull (extended)
+  motor_back_left: 140      # No pull (extended)
+  motor_back_right: 140     # No pull (extended)
 
 # Motor speed settings (0-1023 for Dynamixel)
 motor_speeds:

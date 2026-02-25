@@ -14,11 +14,12 @@ Features:
 import sys
 import yaml
 import os
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QSlider, QSpinBox,
                              QLineEdit, QTextEdit, QListWidget, QFileDialog,
                              QMessageBox, QGroupBox, QSplitter, QTableWidget,
-                             QTableWidgetItem, QDoubleSpinBox, QComboBox)
+                             QTableWidgetItem, QDoubleSpinBox, QComboBox, QDialog,
+                             QFormLayout, QDialogButtonBox)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
 import rclpy
@@ -41,14 +42,31 @@ class BlossomGestureDesigner(QMainWindow):
         self.sequences = {}  # name -> sequence data
         self.current_sequence = None
         self.current_keyframe_index = 0
-        
-        # Motor ranges
+
+        # Config file path - relative to script location
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        config_dir = os.path.join(script_dir, '..', 'config')
+        os.makedirs(config_dir, exist_ok=True)  # Create config dir if it doesn't exist
+        self.config_file = os.path.join(config_dir, 'blossom_motor_config.yaml')
+
+        # Motor ranges (min, max, default)
         self.motor_ranges = {
-            'lazy_susan': (0, 1023, 512),  # (min, max, default)
+            'lazy_susan': (0, 1023, 512),
             'motor_front': (0, 400, 200),
             'motor_back_left': (0, 400, 200),
             'motor_back_right': (0, 400, 200)
         }
+
+        # Home position
+        self.home_position = {
+            'lazy_susan': 512,
+            'motor_front': 200,
+            'motor_back_left': 200,
+            'motor_back_right': 200
+        }
+
+        # Load saved configuration
+        self.load_config()
         
         self.init_ui()
         
@@ -165,20 +183,41 @@ class BlossomGestureDesigner(QMainWindow):
         
         # Quick position buttons
         quick_group = QGroupBox('Quick Positions')
-        quick_layout = QHBoxLayout()
-        
+        quick_layout = QVBoxLayout()
+
+        # Row 1: Presets
+        preset_layout = QHBoxLayout()
         neutral_btn = QPushButton('Neutral')
         neutral_btn.clicked.connect(self.set_neutral_position)
-        quick_layout.addWidget(neutral_btn)
-        
+        preset_layout.addWidget(neutral_btn)
+
         center_btn = QPushButton('Center Head')
         center_btn.clicked.connect(self.set_center_head)
-        quick_layout.addWidget(center_btn)
-        
+        preset_layout.addWidget(center_btn)
+
         nod_btn = QPushButton('Nod Forward')
         nod_btn.clicked.connect(self.set_nod_forward)
-        quick_layout.addWidget(nod_btn)
-        
+        preset_layout.addWidget(nod_btn)
+
+        quick_layout.addLayout(preset_layout)
+
+        # Row 2: Home position
+        home_layout = QHBoxLayout()
+        go_home_btn = QPushButton('🏠 Go to Home')
+        go_home_btn.clicked.connect(self.go_to_home)
+        go_home_btn.setStyleSheet('background-color: #2196F3; color: white; font-weight: bold;')
+        home_layout.addWidget(go_home_btn)
+
+        set_home_btn = QPushButton('Set as Home')
+        set_home_btn.clicked.connect(self.set_as_home)
+        home_layout.addWidget(set_home_btn)
+
+        config_btn = QPushButton('⚙️ Motor Limits')
+        config_btn.clicked.connect(self.open_config_dialog)
+        home_layout.addWidget(config_btn)
+
+        quick_layout.addLayout(home_layout)
+
         quick_group.setLayout(quick_layout)
         layout.addWidget(quick_group)
         
@@ -404,6 +443,81 @@ class BlossomGestureDesigner(QMainWindow):
             'motor_back_right': 200
         }
         self.set_motor_positions(positions)
+
+    def go_to_home(self):
+        """Move to saved home position"""
+        self.set_motor_positions(self.home_position)
+        self.statusBar().showMessage('Moved to home position')
+
+    def set_as_home(self):
+        """Save current position as home"""
+        self.home_position = self.get_current_motor_positions()
+        self.save_config()
+        self.statusBar().showMessage('Current position saved as home')
+        QMessageBox.information(self, 'Home Set', 'Current position has been saved as the home position.')
+
+    def open_config_dialog(self):
+        """Open motor limits configuration dialog"""
+        dialog = MotorLimitsDialog(self.motor_ranges, self)
+        if dialog.exec_() == QDialog.Accepted:
+            new_ranges = dialog.get_ranges()
+            self.motor_ranges = new_ranges
+
+            # Update motor control widgets with new ranges
+            for motor_name, (min_val, max_val, default) in new_ranges.items():
+                if motor_name in self.motor_controls:
+                    controls = self.motor_controls[motor_name]
+                    current_value = controls['spinbox'].value()
+
+                    # Clamp current value to new range
+                    clamped_value = max(min_val, min(max_val, current_value))
+
+                    controls['slider'].setRange(min_val, max_val)
+                    controls['spinbox'].setRange(min_val, max_val)
+                    controls['slider'].setValue(clamped_value)
+                    controls['spinbox'].setValue(clamped_value)
+
+            self.save_config()
+            self.statusBar().showMessage('Motor limits updated')
+
+    def load_config(self):
+        """Load motor limits and home position from config file"""
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r') as f:
+                    config = yaml.safe_load(f)
+
+                if config:
+                    # Load motor ranges
+                    if 'motor_ranges' in config:
+                        for motor, values in config['motor_ranges'].items():
+                            if motor in self.motor_ranges and len(values) == 3:
+                                self.motor_ranges[motor] = tuple(values)
+
+                    # Load home position
+                    if 'home_position' in config:
+                        self.home_position = config['home_position']
+
+                self.statusBar().showMessage('Configuration loaded')
+
+            except Exception as e:
+                print(f'Error loading config: {e}')
+
+    def save_config(self):
+        """Save motor limits and home position to config file"""
+        try:
+            config = {
+                'motor_ranges': {motor: list(values) for motor, values in self.motor_ranges.items()},
+                'home_position': self.home_position
+            }
+
+            with open(self.config_file, 'w') as f:
+                yaml.dump(config, f, default_flow_style=False)
+
+            self.statusBar().showMessage('Configuration saved')
+
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Failed to save configuration: {str(e)}')
     
     def new_sequence(self):
         """Create a new empty sequence"""
@@ -683,6 +797,115 @@ class BlossomGestureDesigner(QMainWindow):
         self.ros_node.destroy_node()
         rclpy.shutdown()
         event.accept()
+
+
+class MotorLimitsDialog(QDialog):
+    """Dialog for configuring motor limits"""
+
+    def __init__(self, motor_ranges, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Motor Limits Configuration')
+        self.setModal(True)
+        self.setMinimumWidth(500)
+
+        # Store initial ranges
+        self.motor_ranges = {motor: list(values) for motor, values in motor_ranges.items()}
+
+        # Create layout
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        # Instructions
+        info_label = QLabel('Configure minimum and maximum limits for each motor.\nDefault is the neutral/home position value.')
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
+
+        # Form for motor settings
+        form_group = QGroupBox('Motor Limits')
+        form_layout = QFormLayout()
+
+        # Store input widgets
+        self.inputs = {}
+
+        for motor_name, (min_val, max_val, default) in motor_ranges.items():
+            # Create container for this motor
+            motor_widget = QWidget()
+            motor_layout = QHBoxLayout()
+            motor_widget.setLayout(motor_layout)
+
+            # Min spinbox
+            min_spin = QSpinBox()
+            min_spin.setRange(0, 4095)
+            min_spin.setValue(min_val)
+            min_spin.setPrefix('Min: ')
+
+            # Max spinbox
+            max_spin = QSpinBox()
+            max_spin.setRange(0, 4095)
+            max_spin.setValue(max_val)
+            max_spin.setPrefix('Max: ')
+
+            # Default spinbox
+            default_spin = QSpinBox()
+            default_spin.setRange(0, 4095)
+            default_spin.setValue(default)
+            default_spin.setPrefix('Default: ')
+
+            motor_layout.addWidget(min_spin)
+            motor_layout.addWidget(max_spin)
+            motor_layout.addWidget(default_spin)
+
+            # Add to form
+            label = motor_name.replace('_', ' ').title()
+            form_layout.addRow(label, motor_widget)
+
+            # Store references
+            self.inputs[motor_name] = {
+                'min': min_spin,
+                'max': max_spin,
+                'default': default_spin
+            }
+
+        form_group.setLayout(form_layout)
+        layout.addWidget(form_group)
+
+        # Buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.validate_and_accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def validate_and_accept(self):
+        """Validate inputs before accepting"""
+        for motor_name, inputs in self.inputs.items():
+            min_val = inputs['min'].value()
+            max_val = inputs['max'].value()
+            default_val = inputs['default'].value()
+
+            # Validate range
+            if min_val >= max_val:
+                QMessageBox.warning(self, 'Invalid Range',
+                                  f'{motor_name}: Minimum must be less than maximum.')
+                return
+
+            # Validate default is within range
+            if not (min_val <= default_val <= max_val):
+                QMessageBox.warning(self, 'Invalid Default',
+                                  f'{motor_name}: Default must be between min and max.')
+                return
+
+        self.accept()
+
+    def get_ranges(self):
+        """Get the configured motor ranges"""
+        ranges = {}
+        for motor_name, inputs in self.inputs.items():
+            ranges[motor_name] = (
+                inputs['min'].value(),
+                inputs['max'].value(),
+                inputs['default'].value()
+            )
+        return ranges
 
 
 class DesignerNode(Node):

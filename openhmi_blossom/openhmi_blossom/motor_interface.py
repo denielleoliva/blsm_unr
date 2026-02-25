@@ -29,7 +29,7 @@ class MotorInterface(Node):
         super().__init__('motor_interface')
 
         # Declare parameters
-        self.declare_parameter('port', '/dev/ttyUSB0')
+        self.declare_parameter('port', '/dev/ttyUSB1')
         self.declare_parameter('baudrate', 1000000)
         self.declare_parameter('motor_config', '')
         self.declare_parameter('publish_rate', 50.0)
@@ -47,6 +47,7 @@ class MotorInterface(Node):
 
         # XL-320 Control Table addresses
         self.ADDR_TORQUE_ENABLE = 24
+        self.ADDR_TORQUE_LIMIT = 35
         self.ADDR_GOAL_POSITION = 30
         self.ADDR_MOVING_SPEED = 32
         self.ADDR_PRESENT_POSITION = 37
@@ -149,6 +150,10 @@ class MotorInterface(Node):
                     self.port_handler, motor_id, self.ADDR_TORQUE_ENABLE, 1
                 )
 
+                dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
+                    self.port_handler, motor_id, self.ADDR_TORQUE_LIMIT, 800
+                )
+
                 if dxl_comm_result == COMM_SUCCESS:
                     self.get_logger().info(f'Initialized motor {name} (ID: {motor_id})')
                 else:
@@ -164,6 +169,7 @@ class MotorInterface(Node):
                 self.motor_ids = config.get('motor_ids', {})
                 self.motor_limits = config.get('motor_limits', {})
                 self.get_logger().info(f'Loaded motor config from {config_file}')
+                
         except Exception as e:
             self.get_logger().error(f'Failed to load config: {e}')
 
