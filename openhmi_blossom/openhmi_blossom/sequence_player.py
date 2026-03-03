@@ -73,6 +73,15 @@ class SequencePlayer(Node):
             self.list_sequences_callback
         )
         
+        # Service for registering YAML sequences
+        # Uses String message type where data contains YAML
+        self.register_sequence_sub = self.create_subscription(
+            String,
+            'register_sequence',
+            self.register_sequence_callback,
+            10
+        )
+        
         self.get_logger().info('Sequence player initialized')
         self.get_logger().info(f'Loaded {len(self.sequences)} sequences')
     
@@ -193,12 +202,12 @@ class SequencePlayer(Node):
         self.status_pub.publish(status_msg)
         self.get_logger().info(f'Completed sequence: {sequence_name}')
     
-    def interpolate_and_publish(self, joint_names: List[str], 
-                                target_positions: List[float], 
+    def interpolate_and_publish(self, joint_names: List[str],
+                                target_positions: List[float],
                                 duration: float):
         """
         Interpolate between current and target positions and publish commands.
-        
+
         Args:
             joint_names: List of joint names
             target_positions: Target positions for each joint
@@ -207,23 +216,22 @@ class SequencePlayer(Node):
         # Simple linear interpolation
         num_steps = self.interpolation_points
         dt = duration / num_steps
-        
+
         for step in range(num_steps + 1):
             if not self.is_playing:
                 break
-            
+
             # Create joint state message
             msg = JointState()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.name = joint_names
-            
-            # Linear interpolation
-            alpha = step / num_steps
-            msg.position = [pos * alpha for pos in target_positions]
-            
+
+            # Send target positions as a list of floats
+            msg.position = [float(pos) for pos in target_positions]
+
             # Publish
             self.joint_cmd_pub.publish(msg)
-            
+
             # Wait
             if step < num_steps:
                 self.get_clock().sleep_for(rclpy.duration.Duration(seconds=dt))
@@ -234,7 +242,33 @@ class SequencePlayer(Node):
         response.success = True
         response.message = f'Available sequences: {sequence_list}'
         return response
+    
+    def register_sequence_callback(self, msg: String):
+        """Callback to register a sequence from YAML or JSON string."""
+        try:
+            # Try YAML first, then JSON
+            try:
+                sequence_data = yaml.safe_load(msg.data)
+            except:
+                sequence_data = json.loads(msg.data)
 
+            if not isinstance(sequence_data, dict):
+                self.get_logger().error('Sequence data must be a dictionary')
+                return
+
+            # If it contains a single sequence with 'keyframes', generate a name
+            if 'keyframes' in sequence_data:
+                sequence_name = f"registered_{len(self.sequences) + 1}"
+                self.sequences[sequence_name] = sequence_data
+                self.get_logger().info(f"Registered sequence: {sequence_name}")
+            else:
+                # Otherwise, iterate through all keys and load sequences
+                for seq_name, seq_data in sequence_data.items():
+                    if isinstance(seq_data, dict) and 'keyframes' in seq_data:
+                        self.sequences[seq_name] = seq_data
+                        self.get_logger().info(f"Registered sequence: {seq_name}")
+        except Exception as e:
+            self.get_logger().error(f"Failed to register sequence: {str(e)}")
 
 def main(args=None):
     rclpy.init(args=args)

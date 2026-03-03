@@ -1,0 +1,27 @@
+# Shaking "no" gesture
+"no":
+  keyframes:
+    - joints:
+        lazy_susan: 400       # Turn left
+        motor_front: 100      # Neutral head
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.3
+    - joints:
+        lazy_susan: 624       # Turn right
+        motor_front: 100      # Neutral head
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.3
+    - joints:
+        lazy_susan: 400       # Turn left
+        motor_front: 100      # Neutral head
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.3
+    - joints:
+        lazy_susan: 512       # Return to center
+        motor_front: 100      # Neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.3

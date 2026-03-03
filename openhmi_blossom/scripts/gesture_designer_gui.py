@@ -14,16 +14,18 @@ Features:
 import sys
 import yaml
 import os
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QSlider, QSpinBox,
                              QLineEdit, QTextEdit, QListWidget, QFileDialog,
                              QMessageBox, QGroupBox, QSplitter, QTableWidget,
-                             QTableWidgetItem, QDoubleSpinBox, QComboBox)
+                             QTableWidgetItem, QDoubleSpinBox, QComboBox, QDialog,
+                             QFormLayout, QDialogButtonBox)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_srvs.srv import Trigger
 from sensor_msgs.msg import JointState
 
 
@@ -41,14 +43,31 @@ class BlossomGestureDesigner(QMainWindow):
         self.sequences = {}  # name -> sequence data
         self.current_sequence = None
         self.current_keyframe_index = 0
-        
-        # Motor ranges
+
+        # Config file path - relative to script location
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        config_dir = os.path.join(script_dir, '..', 'config')
+        os.makedirs(config_dir, exist_ok=True)  # Create config dir if it doesn't exist
+        self.config_file = os.path.join(config_dir, 'blossom_motor_config.yaml')
+
+        # Motor ranges (min, max, default)
         self.motor_ranges = {
-            'lazy_susan': (0, 1023, 512),  # (min, max, default)
+            'lazy_susan': (0, 1023, 512),
             'motor_front': (0, 400, 200),
             'motor_back_left': (0, 400, 200),
             'motor_back_right': (0, 400, 200)
         }
+
+        # Home position
+        self.home_position = {
+            'lazy_susan': 512,
+            'motor_front': 200,
+            'motor_back_left': 200,
+            'motor_back_right': 200
+        }
+
+        # Load saved configuration
+        self.load_config()
         
         self.init_ui()
         
@@ -102,7 +121,12 @@ class BlossomGestureDesigner(QMainWindow):
         self.sequence_list = QListWidget()
         self.sequence_list.itemClicked.connect(self.load_sequence)
         layout.addWidget(self.sequence_list)
-        
+
+        # Load from service button
+        load_service_btn = QPushButton('Load from Robot')
+        load_service_btn.clicked.connect(self.load_sequences_from_service)
+        layout.addWidget(load_service_btn)
+
         # New sequence button
         new_btn = QPushButton('New Sequence')
         new_btn.clicked.connect(self.new_sequence)
@@ -156,8 +180,13 @@ class BlossomGestureDesigner(QMainWindow):
         motor_layout = QVBoxLayout()
         
         self.motor_controls = {}
+        self.joint_limits = self.ros_node.get_joint_limits() or self.motor_ranges  # Use service limits if available
+        
         
         for motor_name, (min_val, max_val, default) in self.motor_ranges.items():
+            # Override with joint limits if available
+            if motor_name in self.joint_limits:
+                min_val, max_val = self.joint_limits[motor_name]
             motor_layout.addWidget(self.create_motor_control(motor_name, min_val, max_val, default))
         
         motor_group.setLayout(motor_layout)
@@ -165,20 +194,41 @@ class BlossomGestureDesigner(QMainWindow):
         
         # Quick position buttons
         quick_group = QGroupBox('Quick Positions')
-        quick_layout = QHBoxLayout()
-        
+        quick_layout = QVBoxLayout()
+
+        # Row 1: Presets
+        preset_layout = QHBoxLayout()
         neutral_btn = QPushButton('Neutral')
         neutral_btn.clicked.connect(self.set_neutral_position)
-        quick_layout.addWidget(neutral_btn)
-        
+        preset_layout.addWidget(neutral_btn)
+
         center_btn = QPushButton('Center Head')
         center_btn.clicked.connect(self.set_center_head)
-        quick_layout.addWidget(center_btn)
-        
+        preset_layout.addWidget(center_btn)
+
         nod_btn = QPushButton('Nod Forward')
         nod_btn.clicked.connect(self.set_nod_forward)
-        quick_layout.addWidget(nod_btn)
-        
+        preset_layout.addWidget(nod_btn)
+
+        quick_layout.addLayout(preset_layout)
+
+        # Row 2: Home position
+        home_layout = QHBoxLayout()
+        go_home_btn = QPushButton('🏠 Go to Home')
+        go_home_btn.clicked.connect(self.go_to_home)
+        go_home_btn.setStyleSheet('background-color: #2196F3; color: white; font-weight: bold;')
+        home_layout.addWidget(go_home_btn)
+
+        set_home_btn = QPushButton('Set as Home')
+        set_home_btn.clicked.connect(self.set_as_home)
+        home_layout.addWidget(set_home_btn)
+
+        config_btn = QPushButton('⚙️ Motor Limits')
+        config_btn.clicked.connect(self.open_config_dialog)
+        home_layout.addWidget(config_btn)
+
+        quick_layout.addLayout(home_layout)
+
         quick_group.setLayout(quick_layout)
         layout.addWidget(quick_group)
         
@@ -262,7 +312,13 @@ class BlossomGestureDesigner(QMainWindow):
         stop_btn = QPushButton('⏹ Stop')
         stop_btn.clicked.connect(self.stop_playback)
         playback_layout.addWidget(stop_btn)
-        
+
+        # Register with robot button
+        register_btn = QPushButton('📤 Register with Robot')
+        register_btn.clicked.connect(self.register_sequence_with_robot)
+        register_btn.setStyleSheet('background-color: #2196F3; color: white;')
+        playback_layout.addWidget(register_btn)
+
         # Playback speed
         speed_layout = QHBoxLayout()
         speed_layout.addWidget(QLabel('Speed:'))
@@ -404,7 +460,107 @@ class BlossomGestureDesigner(QMainWindow):
             'motor_back_right': 200
         }
         self.set_motor_positions(positions)
+
+    def go_to_home(self):
+        """Move to saved home position"""
+        self.set_motor_positions(self.home_position)
+        self.statusBar().showMessage('Moved to home position')
+
+    def set_as_home(self):
+        """Save current position as home"""
+        self.home_position = self.get_current_motor_positions()
+        self.save_config()
+        self.statusBar().showMessage('Current position saved as home')
+        QMessageBox.information(self, 'Home Set', 'Current position has been saved as the home position.')
+
+    def open_config_dialog(self):
+        """Open motor limits configuration dialog"""
+        dialog = MotorLimitsDialog(self.motor_ranges, self)
+        if dialog.exec_() == QDialog.Accepted:
+            new_ranges = dialog.get_ranges()
+            self.motor_ranges = new_ranges
+
+            # Update motor control widgets with new ranges
+            for motor_name, (min_val, max_val, default) in new_ranges.items():
+                if motor_name in self.motor_controls:
+                    controls = self.motor_controls[motor_name]
+                    current_value = controls['spinbox'].value()
+
+                    # Clamp current value to new range
+                    clamped_value = max(min_val, min(max_val, current_value))
+
+                    controls['slider'].setRange(min_val, max_val)
+                    controls['spinbox'].setRange(min_val, max_val)
+                    controls['slider'].setValue(clamped_value)
+                    controls['spinbox'].setValue(clamped_value)
+
+            self.save_config()
+            self.statusBar().showMessage('Motor limits updated')
+
+    def load_config(self):
+        """Load motor limits and home position from config file"""
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r') as f:
+                    config = yaml.safe_load(f)
+
+                if config:
+                    # Load motor ranges
+                    if 'motor_ranges' in config:
+                        for motor, values in config['motor_ranges'].items():
+                            if motor in self.motor_ranges and len(values) == 3:
+                                self.motor_ranges[motor] = tuple(values)
+
+                    # Load home position
+                    if 'home_position' in config:
+                        self.home_position = config['home_position']
+
+                self.statusBar().showMessage('Configuration loaded')
+
+            except Exception as e:
+                print(f'Error loading config: {e}')
+
+    def save_config(self):
+        """Save motor limits and home position to config file"""
+        try:
+            config = {
+                'motor_ranges': {motor: list(values) for motor, values in self.motor_ranges.items()},
+                'home_position': self.home_position
+            }
+
+            with open(self.config_file, 'w') as f:
+                yaml.dump(config, f, default_flow_style=False)
+
+            self.statusBar().showMessage('Configuration saved')
+
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Failed to save configuration: {str(e)}')
     
+    def load_sequences_from_service(self):
+        """Load sequences from the robot's list_sequences service"""
+        sequences = self.ros_node.get_sequences_from_service()
+        if sequences:
+            self.sequences.update(sequences)
+            self.refresh_sequence_list()
+            self.statusBar().showMessage(f'Loaded {len(sequences)} sequences from robot')
+        else:
+            QMessageBox.warning(self, 'Failed to Load', 'Could not retrieve sequences from robot service')
+
+    def register_sequence_with_robot(self):
+        """Register current sequence with the robot"""
+        if not self.current_sequence:
+            QMessageBox.warning(self, 'No Sequence', 'Please select a sequence to register.')
+            return
+
+        sequence_data = self.sequences[self.current_sequence]
+        success = self.ros_node.register_sequence(self.current_sequence, sequence_data)
+
+        if success:
+            self.statusBar().showMessage(f'Registered sequence "{self.current_sequence}" with robot')
+            QMessageBox.information(self, 'Success', f'Sequence "{self.current_sequence}" has been registered with the robot.')
+        else:
+            QMessageBox.critical(self, 'Failed', f'Failed to register sequence "{self.current_sequence}" with robot.')
+
     def new_sequence(self):
         """Create a new empty sequence"""
         name = self.name_input.text() or 'new_sequence'
@@ -551,8 +707,12 @@ class BlossomGestureDesigner(QMainWindow):
         if not self.current_sequence:
             self.yaml_preview.clear()
             return
-        
-        sequence_data = {self.current_sequence: self.sequences[self.current_sequence]}
+
+        # Create clean copy without internal fields
+        seq_data = self.sequences[self.current_sequence].copy()
+        seq_data.pop('_source', None)  # Remove metadata field used for tracking origin
+
+        sequence_data = {self.current_sequence: seq_data}
         yaml_str = yaml.dump(sequence_data, default_flow_style=False, sort_keys=False)
         self.yaml_preview.setPlainText(yaml_str)
     
@@ -623,9 +783,20 @@ class BlossomGestureDesigner(QMainWindow):
         if not self.current_sequence:
             QMessageBox.warning(self, 'No Sequence', 'Please select a sequence to play.')
             return
-        
-        self.ros_node.play_sequence(self.current_sequence)
-        self.statusBar().showMessage(f'Playing sequence: {self.current_sequence}')
+
+        # Get loop count from combo box
+        loop_text = self.loop_combo.currentText()
+        if loop_text == 'Once':
+            loop_count = 1
+        elif loop_text == '3 times':
+            loop_count = 3
+        elif loop_text == '5 times':
+            loop_count = 5
+        else:  # 'Infinite'
+            loop_count = -1
+
+        self.ros_node.play_sequence(self.current_sequence, loop_count)
+        self.statusBar().showMessage(f'Playing sequence: {self.current_sequence} ({loop_text})')
     
     def stop_playback(self):
         """Stop current playback"""
@@ -685,6 +856,115 @@ class BlossomGestureDesigner(QMainWindow):
         event.accept()
 
 
+class MotorLimitsDialog(QDialog):
+    """Dialog for configuring motor limits"""
+
+    def __init__(self, motor_ranges, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Motor Limits Configuration')
+        self.setModal(True)
+        self.setMinimumWidth(500)
+
+        # Store initial ranges
+        self.motor_ranges = {motor: list(values) for motor, values in motor_ranges.items()}
+
+        # Create layout
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        # Instructions
+        info_label = QLabel('Configure minimum and maximum limits for each motor.\nDefault is the neutral/home position value.')
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
+
+        # Form for motor settings
+        form_group = QGroupBox('Motor Limits')
+        form_layout = QFormLayout()
+
+        # Store input widgets
+        self.inputs = {}
+
+        for motor_name, (min_val, max_val, default) in motor_ranges.items():
+            # Create container for this motor
+            motor_widget = QWidget()
+            motor_layout = QHBoxLayout()
+            motor_widget.setLayout(motor_layout)
+
+            # Min spinbox
+            min_spin = QSpinBox()
+            min_spin.setRange(0, 4095)
+            min_spin.setValue(min_val)
+            min_spin.setPrefix('Min: ')
+
+            # Max spinbox
+            max_spin = QSpinBox()
+            max_spin.setRange(0, 4095)
+            max_spin.setValue(max_val)
+            max_spin.setPrefix('Max: ')
+
+            # Default spinbox
+            default_spin = QSpinBox()
+            default_spin.setRange(0, 4095)
+            default_spin.setValue(default)
+            default_spin.setPrefix('Default: ')
+
+            motor_layout.addWidget(min_spin)
+            motor_layout.addWidget(max_spin)
+            motor_layout.addWidget(default_spin)
+
+            # Add to form
+            label = motor_name.replace('_', ' ').title()
+            form_layout.addRow(label, motor_widget)
+
+            # Store references
+            self.inputs[motor_name] = {
+                'min': min_spin,
+                'max': max_spin,
+                'default': default_spin
+            }
+
+        form_group.setLayout(form_layout)
+        layout.addWidget(form_group)
+
+        # Buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.validate_and_accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def validate_and_accept(self):
+        """Validate inputs before accepting"""
+        for motor_name, inputs in self.inputs.items():
+            min_val = inputs['min'].value()
+            max_val = inputs['max'].value()
+            default_val = inputs['default'].value()
+
+            # Validate range
+            if min_val >= max_val:
+                QMessageBox.warning(self, 'Invalid Range',
+                                  f'{motor_name}: Minimum must be less than maximum.')
+                return
+
+            # Validate default is within range
+            if not (min_val <= default_val <= max_val):
+                QMessageBox.warning(self, 'Invalid Default',
+                                  f'{motor_name}: Default must be between min and max.')
+                return
+
+        self.accept()
+
+    def get_ranges(self):
+        """Get the configured motor ranges"""
+        ranges = {}
+        for motor_name, inputs in self.inputs.items():
+            ranges[motor_name] = (
+                inputs['min'].value(),
+                inputs['max'].value(),
+                inputs['default'].value()
+            )
+        return ranges
+
+
 class DesignerNode(Node):
     """ROS 2 node for communicating with robot"""
     
@@ -696,6 +976,13 @@ class DesignerNode(Node):
         self.sequence_pub = self.create_publisher(String, 'play_sequence', 10)
         self.behavior_pub = self.create_publisher(String, 'behavior_command', 10)
         
+        # Service calls
+        self.joint_limits_srv = self.create_client(Trigger, 'list_joint_limits')
+        self.list_sequences_srv = self.create_client(Trigger, 'list_sequences')
+
+        # Publisher for registering sequences (YAML/JSON)
+        self.register_sequence_pub = self.create_publisher(String, 'register_sequence', 10)
+
         self.get_logger().info('Designer node initialized')
         
         # Stop idle animation on startup
@@ -741,16 +1028,102 @@ class DesignerNode(Node):
         self.joint_pub.publish(msg)
         self.get_logger().info(f'Sent: {msg.name} = {msg.position}')
     
-    def play_sequence(self, sequence_name):
-        """Trigger sequence playback"""
+    def play_sequence(self, sequence_name, loop_count=1):
+        """Trigger sequence playback with optional looping"""
+        # Format: "sequence_name" or "sequence_name|loop_count" for looping
+        if loop_count == 1:
+            msg_data = sequence_name
+        else:
+            msg_data = f"{sequence_name}|{loop_count}"
+
         msg = String()
-        msg.data = sequence_name
+        msg.data = msg_data
         self.sequence_pub.publish(msg)
+        self.get_logger().info(f'Playing sequence: {sequence_name} (loop: {loop_count})')
     
     def stop_playback(self):
         """Stop current playback"""
         # Could implement stop command if needed
         pass
+    
+    def get_joint_limits(self):
+        """Get joint limits from robot"""
+        if self.joint_limits_srv.wait_for_service(timeout_sec=1.0):
+            request = Trigger.Request()
+            future = self.joint_limits_srv.call_async(request)
+            rclpy.spin_until_future_complete(self, future)
+            if future.result() is not None:
+                # decode response.message += f'{nl}{name}: {limits[0]} - {limits[1]}' into dictionary
+                limits_dict = {}
+                for line in future.result().message.splitlines():
+                    if ': ' in line:
+                        name, limits = line.split(': ')
+                        min_val, max_val = limits.split(' - ')
+                        limits_dict[name.strip()] = (int(min_val), int(max_val))
+                
+                self.get_logger().info('Joint limits:\n' + future.result().message)
+                return limits_dict
+            else:
+                self.get_logger().error('Failed to get joint limits')
+                return None
+        else:
+            self.get_logger().error('Joint limits service not available')
+            return None
+        
+    def register_sequence(self, name, sequence_data):
+        """Register a sequence with the sequence player via YAML."""
+        try:
+            # Convert sequence to YAML format
+            sequence_dict = {name: sequence_data}
+            yaml_str = yaml.dump(sequence_dict, default_flow_style=False, sort_keys=False)
+
+            # Publish to register_sequence topic
+            msg = String()
+            msg.data = yaml_str
+            self.register_sequence_pub.publish(msg)
+            self.get_logger().info(f'Registered sequence: {name}')
+            return True
+        except Exception as e:
+            self.get_logger().error(f'Failed to register sequence: {e}')
+            return False
+
+    def get_sequences_from_service(self):
+        """Get available sequences from the robot service"""
+        try:
+            if self.list_sequences_srv.wait_for_service(timeout_sec=2.0):
+                request = Trigger.Request()
+                future = self.list_sequences_srv.call_async(request)
+                rclpy.spin_until_future_complete(self, future)
+
+                if future.result() is not None:
+                    response = future.result()
+                    # Parse the message which contains "Available sequences: seq1, seq2, seq3"
+                    message = response.message
+                    if 'Available sequences:' in message:
+                        sequences_str = message.split('Available sequences:')[1].strip()
+                        sequence_names = [s.strip() for s in sequences_str.split(',')]
+                        self.get_logger().info(f'Retrieved sequences: {sequence_names}')
+
+                        # Create placeholder sequence data for each sequence
+                        sequences_dict = {}
+                        for seq_name in sequence_names:
+                            sequences_dict[seq_name] = {
+                                'keyframes': [],
+                                '_source': 'robot_service'
+                            }
+                        return sequences_dict
+                    else:
+                        self.get_logger().error(f'Unexpected service response format: {message}')
+                        return None
+                else:
+                    self.get_logger().error('Failed to get sequences from service')
+                    return None
+            else:
+                self.get_logger().error('list_sequences service not available')
+                return None
+        except Exception as e:
+            self.get_logger().error(f'Error calling list_sequences service: {e}')
+            return None
 
 
 def main():

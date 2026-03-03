@@ -1,0 +1,21 @@
+# Happy gesture
+happy:
+  keyframes:
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 50       # Light pull
+        motor_back_left: 50   # Light pull
+        motor_back_right: 50  # Light pull
+      duration: 0.5
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 20       # Very light pull (head up)
+        motor_back_left: 20   # Very light pull
+        motor_back_right: 20  # Very light pull
+      duration: 0.3
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 50       # Back to light pull
+        motor_back_left: 50   # Light pull
+        motor_back_right: 50  # Light pull
+      duration: 0.3
