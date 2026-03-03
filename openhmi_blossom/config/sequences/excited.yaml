@@ -1,0 +1,27 @@
+# Excited gesture
+excited:
+  keyframes:
+    - joints:
+        lazy_susan: 450       # Quick left
+        motor_front: 50       # Light pull
+        motor_back_left: 50   # Light pull
+        motor_back_right: 50  # Light pull
+      duration: 0.15
+    - joints:
+        lazy_susan: 574       # Quick right
+        motor_front: 30       # Very light pull
+        motor_back_left: 30   # Very light pull
+        motor_back_right: 30  # Very light pull
+      duration: 0.15
+    - joints:
+        lazy_susan: 450       # Quick left
+        motor_front: 50       # Light pull
+        motor_back_left: 50   # Light pull
+        motor_back_right: 50  # Light pull
+      duration: 0.15
+    - joints:
+        lazy_susan: 512       # Center
+        motor_front: 100      # Neutral
+        motor_back_left: 100  # Neutral
+        motor_back_right: 100 # Neutral
+      duration: 0.2

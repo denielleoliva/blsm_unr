@@ -1,0 +1,15 @@
+# Sad gesture
+sad:
+  keyframes:
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 150      # Pull head down
+        motor_back_left: 100  # Moderate pull
+        motor_back_right: 100 # Moderate pull
+      duration: 0.8
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 200      # More pull (head down more)
+        motor_back_left: 80   # Less pull
+        motor_back_right: 80  # Less pull
+      duration: 1.0

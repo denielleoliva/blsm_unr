@@ -1,0 +1,30 @@
+# Blossom Motor Configuration
+
+# Motor IDs for Dynamixel servos
+motor_ids:
+  lazy_susan: 1        # Base rotation motor
+  motor_front: 2       # Front head plate motor
+  motor_back_left: 3   # Back-left head plate motor
+  motor_back_right: 4  # Back-right head plate motor
+
+# Motor position limits (in controller units)
+# These are converted to Dynamixel units (0-4095) by the motor interface
+motor_limits:
+  lazy_susan: [0, 1023]      # Base rotation range
+  motor_front: [0, 400]      # Head plate pull range (0 = extended, 400 = max pull)
+  motor_back_left: [0, 400]  # Head plate pull range (0 = extended, 400 = max pull)
+  motor_back_right: [0, 400] # Head plate pull range (0 = extended, 400 = max pull)
+
+# Home positions (neutral stance in controller units)
+home_positions:
+  lazy_susan: 512         # Center position for base rotation
+  motor_front: 0          # No pull (extended)
+  motor_back_left: 0      # No pull (extended)
+  motor_back_right: 0     # No pull (extended)
+
+# Motor speed settings (0-1023 for Dynamixel)
+motor_speeds:
+  lazy_susan: 512         # Moderate speed for base rotation
+  motor_front: 512        # Medium speed for head movements
+  motor_back_left: 512    # Medium speed for head movements
+  motor_back_right: 512   # Medium speed for head movements

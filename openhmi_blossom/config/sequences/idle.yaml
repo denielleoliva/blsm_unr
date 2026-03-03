@@ -1,0 +1,21 @@
+# Idle breathing animation
+idle:
+  keyframes:
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 80       # Minimal pull
+        motor_back_left: 80   # Minimal pull
+        motor_back_right: 80  # Minimal pull
+      duration: 2.0
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 120      # Slightly more pull (breathe in)
+        motor_back_left: 120  # Slightly more pull
+        motor_back_right: 120 # Slightly more pull
+      duration: 2.0
+    - joints:
+        lazy_susan: 512       # Stay centered
+        motor_front: 80       # Return (breathe out)
+        motor_back_left: 80   # Return
+        motor_back_right: 80  # Return
+      duration: 2.0
