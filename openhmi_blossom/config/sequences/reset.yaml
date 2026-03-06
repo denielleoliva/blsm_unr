@@ -1,0 +1,14 @@
+reset:
+  keyframes:
+  - joints:
+      motor_front: 977
+      motor_back_left: 977
+      motor_back_right: 977
+      lazy_susan: 586
+    duration: 0.0
+  - joints:
+      motor_front: 977
+      motor_back_left: 977
+      motor_back_right: 977
+      lazy_susan: 586
+    duration: 0.05

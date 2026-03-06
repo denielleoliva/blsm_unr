@@ -1,0 +1,22 @@
+home_position:
+  lazy_susan: 512
+  motor_back_left: 200
+  motor_back_right: 200
+  motor_front: 200
+motor_ranges:
+  lazy_susan:
+  - 0
+  - 1023
+  - 512
+  motor_back_left:
+  - 0
+  - 400
+  - 100
+  motor_back_right:
+  - 0
+  - 400
+  - 100
+  motor_front:
+  - 0
+  - 400
+  - 100

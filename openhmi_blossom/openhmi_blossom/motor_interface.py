@@ -29,7 +29,7 @@ class MotorInterface(Node):
         super().__init__('motor_interface')
 
         # Declare parameters
-        self.declare_parameter('port', '/dev/ttyUSB1')
+        self.declare_parameter('port', '/dev/ttyUSB0')
         self.declare_parameter('baudrate', 1000000)
         self.declare_parameter('motor_config', '')
         self.declare_parameter('publish_rate', 50.0)
@@ -89,12 +89,13 @@ class MotorInterface(Node):
             self.load_motor_config(config_file)
         else:
             # Default Blossom configuration for XL-320
-            # Motor IDs for Dynamixel servos
+            # IDs match original pypot/Blossom convention:
+            #   1-3 = tower (head-tilt) motors, 4 = base rotation
             self.motor_ids = {
-                'lazy_susan': 1,        # Base rotation motor
-                'motor_front': 2,       # Front head plate motor
-                'motor_back_left': 3,   # Back-left head plate motor
-                'motor_back_right': 4,  # Back-right head plate motor
+                'lazy_susan':       1,  # Base rotation
+                'motor_front':      2,  # Front head-tilt string
+                'motor_back_left':  3,  # Back-left head-tilt string
+                'motor_back_right': 4,  # Back-right head-tilt string
             }
             # Read position limits from motor hardware (CW/CCW angle limit registers)
             self.motor_limits = {}
@@ -117,14 +118,11 @@ class MotorInterface(Node):
 
 
         # Current joint positions (initialize to home/neutral positions)
-        self.current_positions = {}
-        for name in self.motor_ids.keys():
-            if name == 'lazy_susan':
-                # Center position for lazy susan (512 for XL-320)
-                self.current_positions[name] = 512
-            else:
-                # Home position for head motors (0 = no pull)
-                self.current_positions[name] = 0
+        home = {'lazy_susan': 512, 'motor_front': 870,
+                'motor_back_left': 870, 'motor_back_right': 870}
+        self.current_positions = {
+            name: home.get(name, 0) for name in self.motor_ids.keys()
+        }
 
         # Initialize motors on startup
         if DYNAMIXEL_SDK_AVAILABLE and self.port_handler:
@@ -205,7 +203,7 @@ class MotorInterface(Node):
                     continue
 
                 dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
-                    self.port_handler, motor_id, self.ADDR_TORQUE_LIMIT, 800
+                    self.port_handler, motor_id, self.ADDR_TORQUE_LIMIT, 512
                 )
 
                 if dxl_comm_result == COMM_SUCCESS:
@@ -237,25 +235,34 @@ class MotorInterface(Node):
             if name in self.motor_ids and i < len(msg.position):
                 motor_id = self.motor_ids[name]
                 position = msg.position[i]
-                
-                # check if mempory 50 Hardware Error Status is in error state, if so, 
-                # skip sending command to motor and queue a restart of the motor interface node to clear the buffer
+
+                # Check Hardware Error Status (address 50, XL-320). Non-zero = fault.
                 dxl_hw_error_status, dxl_comm_result, dxl_error = self.packet_handler.read1ByteTxRx(
                     self.port_handler, motor_id, 50
                 )
-
                 if dxl_comm_result != COMM_SUCCESS or dxl_hw_error_status != 0:
-                    self.get_logger().error(f'Motor {motor_id} hardware error status: {dxl_hw_error_status}')
+                    self.get_logger().error(f'Motor {motor_id} hardware error: 0x{dxl_hw_error_status:02x}')
                     return
-                # Read overload status from address 50 (Present Load)
-                dxl_present_load, dxl_comm_result, dxl_error = self.packet_handler.read1ByteTxRx(
-                    self.port_handler, motor_id, 50
-                )
 
-                if dxl_comm_result != COMM_SUCCESS or dxl_present_load > 800:  # Threshold can be adjusted
-                    self.get_logger().warn(f'Motor {motor_id} overloaded, skipping command')
+                # Check Present Load (address 41, 2 bytes). Bits 0-9 = magnitude (0-1023),
+                # bit 10 = direction. Overload if magnitude > threshold.
+                dxl_present_load, dxl_comm_result, _ = self.packet_handler.read2ByteTxRx(
+                    self.port_handler, motor_id, 41
+                )
+                load_magnitude = dxl_present_load & 0x3FF  # strip direction bit
+                if dxl_comm_result != COMM_SUCCESS or load_magnitude > 700:
+                    self.get_logger().warn(f'Motor {motor_id} overloaded (load={load_magnitude}), skipping command')
                     return
-                
+
+                # Apply per-joint speed from velocity field before commanding position.
+                # The sequence player calculates MOVING_SPEED from distance/duration so the
+                # motor physically moves at the right rate (0 = keep current speed).
+                if i < len(msg.velocity) and msg.velocity[i] > 0:
+                    speed = int(msg.velocity[i])
+                    self.packet_handler.write2ByteTxRx(
+                        self.port_handler, motor_id, self.ADDR_MOVING_SPEED, speed
+                    )
+
                 # Convert position to motor units (0-1023 for XL-320)
                 motor_position = self.position_to_motor_units(name, position)
 

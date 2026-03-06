@@ -1,30 +1,36 @@
 # Blossom Motor Configuration
+# IDs match the original pypot/Blossom convention:
+#   1, 2, 3 = tower (head-tilt) motors
+#   4       = base rotation (lazy susan)
+#   5       = ears (optional)
 
-# Motor IDs for Dynamixel servos
 motor_ids:
-  lazy_susan: 1        # Base rotation motor
-  motor_front: 2       # Front head plate motor
-  motor_back_left: 3   # Back-left head plate motor
-  motor_back_right: 4  # Back-right head plate motor
+  lazy_susan:       1   # Base rotation
+  motor_front:      2   # Front head-tilt string
+  motor_back_left:  3   # Back-left head-tilt string
+  motor_back_right: 4   # Back-right head-tilt string
+  # ears:           5   # Uncomment if ears motor is present
 
-# Motor position limits (in controller units)
-# These are converted to Dynamixel units (0-4095) by the motor interface
+# Position limits in raw XL-320 units (0–1023, full range = 300°)
+# Tower motors pull strings: 0 = slack (extended), higher = more pull
+# Lazy susan: 0–1023 covers full 300° rotation, 512 = centre
 motor_limits:
-  lazy_susan: [0, 1023]      # Base rotation range
-  motor_front: [0, 400]      # Head plate pull range (0 = extended, 400 = max pull)
-  motor_back_left: [0, 400]  # Head plate pull range (0 = extended, 400 = max pull)
-  motor_back_right: [0, 400] # Head plate pull range (0 = extended, 400 = max pull)
+  motor_front:      [0, 950]
+  motor_back_left:  [0, 950]
+  motor_back_right: [0, 950]
+  lazy_susan:       [0, 1023]
+  # ears:           [170, 443]   # [50°, 130°] mapped to raw units
 
-# Home positions (neutral stance in controller units)
+# Neutral/home positions — upright head position based on animation data (~870 raw)
 home_positions:
-  lazy_susan: 512         # Center position for base rotation
-  motor_front: 140          # No pull (extended)
-  motor_back_left: 140      # No pull (extended)
-  motor_back_right: 140     # No pull (extended)
+  motor_front:      870
+  motor_back_left:  870
+  motor_back_right: 870
+  lazy_susan:       512
 
-# Motor speed settings (0-1023 for Dynamixel)
+# Default moving speeds (used at init; overridden per-command during playback)
 motor_speeds:
-  lazy_susan: 512         # Moderate speed for base rotation
-  motor_front: 512        # Medium speed for head movements
-  motor_back_left: 512    # Medium speed for head movements
-  motor_back_right: 512   # Medium speed for head movements
+  motor_front:      200
+  motor_back_left:  200
+  motor_back_right: 200
+  lazy_susan:       200
