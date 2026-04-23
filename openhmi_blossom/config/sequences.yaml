@@ -233,3 +233,30 @@ calm:
         motor_back_left: 100  # Return
         motor_back_right: 100 # Return
       duration: 1.5
+
+intro:
+  keyframes:
+    - joints:
+        lazy_susan: 521
+        motor_front: 127
+        motor_back_left: 125
+        motor_back_right: 129
+      duration: 0.5
+    - joints:
+        lazy_susan: 521
+        motor_front: 240
+        motor_back_left: 152
+        motor_back_right: 168
+      duration: 0.5
+    - joints:
+        lazy_susan: 594
+        motor_front: 240
+        motor_back_left: 212
+        motor_back_right: 168
+      duration: 1.0
+    - joints:
+        lazy_susan: 437
+        motor_front: 240
+        motor_back_left: 161
+        motor_back_right: 237
+      duration: 1.0

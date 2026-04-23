@@ -41,7 +41,8 @@ def generate_launch_description():
         'sequences_dir',
         default_value=PathJoinSubstitution([
             FindPackageShare('openhmi_blossom'),
-            'config'
+            'config',
+            'sequences'
         ]),
         description='Directory containing gesture sequences'
     )

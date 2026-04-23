@@ -1,27 +1,152 @@
-# Nodding "yes" gesture
-"yes":
+'yes':
   keyframes:
-    - joints:
-        lazy_susan: 512       # Stay centered
-        motor_front: 200      # Moderate pull
-        motor_back_left: 100  # Less pull
-        motor_back_right: 100 # Less pull
-      duration: 0.3
-    - joints:
-        lazy_susan: 512       # Stay centered
-        motor_front: 300      # More pull (nod down)
-        motor_back_left: 50   # Minimal pull
-        motor_back_right: 50  # Minimal pull
-      duration: 0.3
-    - joints:
-        lazy_susan: 512       # Stay centered
-        motor_front: 200      # Moderate pull
-        motor_back_left: 100  # Less pull
-        motor_back_right: 100 # Less pull
-      duration: 0.3
-    - joints:
-        lazy_susan: 512       # Stay centered
-        motor_front: 100      # Return to neutral
-        motor_back_left: 100  # Neutral
-        motor_back_right: 100 # Neutral
-      duration: 0.3
+  - joints:
+      motor_front: 859
+      motor_back_left: 852
+      motor_back_right: 868
+      lazy_susan: 577
+    duration: 0.0
+  - joints:
+      motor_front: 862
+      motor_back_left: 851
+      motor_back_right: 866
+      lazy_susan: 577
+    duration: 0.105
+  - joints:
+      motor_front: 859
+      motor_back_left: 852
+      motor_back_right: 868
+      lazy_susan: 576
+    duration: 0.102
+  - joints:
+      motor_front: 858
+      motor_back_left: 852
+      motor_back_right: 868
+      lazy_susan: 576
+    duration: 0.101
+  - joints:
+      motor_front: 860
+      motor_back_left: 852
+      motor_back_right: 867
+      lazy_susan: 576
+    duration: 0.101
+  - joints:
+      motor_front: 861
+      motor_back_left: 852
+      motor_back_right: 866
+      lazy_susan: 576
+    duration: 0.101
+  - joints:
+      motor_front: 860
+      motor_back_left: 852
+      motor_back_right: 867
+      lazy_susan: 576
+    duration: 0.1
+  - joints:
+      motor_front: 820
+      motor_back_left: 878
+      motor_back_right: 882
+      lazy_susan: 579
+    duration: 0.105
+  - joints:
+      motor_front: 820
+      motor_back_left: 878
+      motor_back_right: 882
+      lazy_susan: 579
+    duration: 0.106
+  - joints:
+      motor_front: 760
+      motor_back_left: 924
+      motor_back_right: 896
+      lazy_susan: 578
+    duration: 0.1
+  - joints:
+      motor_front: 814
+      motor_back_left: 886
+      motor_back_right: 879
+      lazy_susan: 582
+    duration: 0.105
+  - joints:
+      motor_front: 905
+      motor_back_left: 829
+      motor_back_right: 846
+      lazy_susan: 581
+    duration: 0.105
+  - joints:
+      motor_front: 869
+      motor_back_left: 850
+      motor_back_right: 861
+      lazy_susan: 583
+    duration: 0.101
+  - joints:
+      motor_front: 807
+      motor_back_left: 890
+      motor_back_right: 882
+      lazy_susan: 583
+    duration: 0.101
+  - joints:
+      motor_front: 753
+      motor_back_left: 923
+      motor_back_right: 903
+      lazy_susan: 582
+    duration: 0.104
+  - joints:
+      motor_front: 765
+      motor_back_left: 917
+      motor_back_right: 897
+      lazy_susan: 581
+    duration: 0.103
+  - joints:
+      motor_front: 801
+      motor_back_left: 899
+      motor_back_right: 880
+      lazy_susan: 580
+    duration: 0.101
+  - joints:
+      motor_front: 847
+      motor_back_left: 870
+      motor_back_right: 862
+      lazy_susan: 580
+    duration: 0.102
+  - joints:
+      motor_front: 864
+      motor_back_left: 861
+      motor_back_right: 855
+      lazy_susan: 580
+    duration: 0.102
+  - joints:
+      motor_front: 871
+      motor_back_left: 855
+      motor_back_right: 853
+      lazy_susan: 579
+    duration: 0.101
+  - joints:
+      motor_front: 868
+      motor_back_left: 857
+      motor_back_right: 855
+      lazy_susan: 579
+    duration: 0.105
+  - joints:
+      motor_front: 859
+      motor_back_left: 858
+      motor_back_right: 862
+      lazy_susan: 580
+    duration: 0.102
+  - joints:
+      motor_front: 855
+      motor_back_left: 859
+      motor_back_right: 865
+      lazy_susan: 580
+    duration: 0.1
+  - joints:
+      motor_front: 855
+      motor_back_left: 859
+      motor_back_right: 865
+      lazy_susan: 579
+    duration: 0.1
+  - joints:
+      motor_front: 855
+      motor_back_left: 856
+      motor_back_right: 867
+      lazy_susan: 580
+    duration: 0.101
