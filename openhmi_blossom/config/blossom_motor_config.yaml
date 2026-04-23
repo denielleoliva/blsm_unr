@@ -3,6 +3,7 @@ home_position:
   motor_back_left: 200
   motor_back_right: 200
   motor_front: 200
+  ear: 761
 motor_ranges:
   lazy_susan:
   - 0
@@ -20,3 +21,7 @@ motor_ranges:
   - 0
   - 400
   - 100
+  ear:
+  - 500
+  - 1023
+  - 761

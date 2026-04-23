@@ -9,7 +9,7 @@ motor_ids:
   motor_front:      2   # Front head-tilt string
   motor_back_left:  3   # Back-left head-tilt string
   motor_back_right: 4   # Back-right head-tilt string
-  # ears:           5   # Uncomment if ears motor is present
+  ear:              5   # Ear motor
 
 # Position limits in raw XL-320 units (0–1023, full range = 300°)
 # Tower motors pull strings: 0 = slack (extended), higher = more pull
@@ -19,7 +19,7 @@ motor_limits:
   motor_back_left:  [0, 950]
   motor_back_right: [0, 950]
   lazy_susan:       [0, 1023]
-  # ears:           [170, 443]   # [50°, 130°] mapped to raw units
+  ear:              [500, 1023]  # CW limit 500, CCW limit 1023
 
 # Neutral/home positions — upright head position based on animation data (~870 raw)
 home_positions:
@@ -27,6 +27,7 @@ home_positions:
   motor_back_left:  870
   motor_back_right: 870
   lazy_susan:       512
+  ear:              761
 
 # Default moving speeds (used at init; overridden per-command during playback)
 motor_speeds:
@@ -34,3 +35,4 @@ motor_speeds:
   motor_back_left:  200
   motor_back_right: 200
   lazy_susan:       200
+  ear:              200

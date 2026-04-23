@@ -55,7 +55,8 @@ class BlossomGestureDesigner(QMainWindow):
             'lazy_susan': (0, 1023, 512),
             'motor_front': (0, 400, 200),
             'motor_back_left': (0, 400, 200),
-            'motor_back_right': (0, 400, 200)
+            'motor_back_right': (0, 400, 200),
+            'ear': (500, 1023, 761),
         }
 
         # Home position
@@ -63,7 +64,8 @@ class BlossomGestureDesigner(QMainWindow):
             'lazy_susan': 512,
             'motor_front': 200,
             'motor_back_left': 200,
-            'motor_back_right': 200
+            'motor_back_right': 200,
+            'ear': 761,
         }
 
         # Load saved configuration
@@ -270,9 +272,9 @@ class BlossomGestureDesigner(QMainWindow):
         timeline_layout = QVBoxLayout()
         
         self.timeline_table = QTableWidget()
-        self.timeline_table.setColumnCount(6)
+        self.timeline_table.setColumnCount(7)
         self.timeline_table.setHorizontalHeaderLabels([
-            'Frame', 'Lazy Susan', 'Front', 'Back L', 'Back R', 'Duration'
+            'Frame', 'Lazy Susan', 'Front', 'Back L', 'Back R', 'Ear', 'Duration'
         ])
         self.timeline_table.itemClicked.connect(self.timeline_item_clicked)
         timeline_layout.addWidget(self.timeline_table)
@@ -664,7 +666,8 @@ class BlossomGestureDesigner(QMainWindow):
             self.timeline_table.setItem(i, 2, QTableWidgetItem(str(joints.get('motor_front', 250))))
             self.timeline_table.setItem(i, 3, QTableWidgetItem(str(joints.get('motor_back_left', 250))))
             self.timeline_table.setItem(i, 4, QTableWidgetItem(str(joints.get('motor_back_right', 250))))
-            self.timeline_table.setItem(i, 5, QTableWidgetItem(f"{kf['duration']:.1f}s"))
+            self.timeline_table.setItem(i, 5, QTableWidgetItem(str(joints.get('ear', 761))))
+            self.timeline_table.setItem(i, 6, QTableWidgetItem(f"{kf['duration']:.1f}s"))
     
     def refresh_sequence_list(self):
         """Refresh the sequence list"""
@@ -1006,25 +1009,11 @@ class DesignerNode(Node):
         """Send motor positions to robot"""
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
-        
-        # Use actual joint names (no _joint suffix)
-        # Send values directly
-        if 'lazy_susan' in positions:
-            msg.name.append('lazy_susan')
-            msg.position.append(float(positions['lazy_susan']))  # Raw 0-1023
-        
-        if 'motor_front' in positions:
-            msg.name.append('motor_front')
-            msg.position.append(float(positions['motor_front']))  # Direct value
-        
-        if 'motor_back_right' in positions:
-            msg.name.append('motor_back_right')
-            msg.position.append(float(positions['motor_back_right']))  # Direct value
-        
-        if 'motor_back_left' in positions:
-            msg.name.append('motor_back_left')
-            msg.position.append(float(positions['motor_back_left']))  # Direct value
-        
+
+        for name, value in positions.items():
+            msg.name.append(name)
+            msg.position.append(float(value))
+
         self.joint_pub.publish(msg)
         self.get_logger().info(f'Sent: {msg.name} = {msg.position}')
     

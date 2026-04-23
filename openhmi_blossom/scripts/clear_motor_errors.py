@@ -7,9 +7,9 @@ Run this when motors report hardware error status.
 from dynamixel_sdk import *
 import sys
 
-# Protocol 2.0 addresses
-ADDR_TORQUE_ENABLE = 64
-ADDR_HARDWARE_ERROR_STATUS = 70
+# XL-320 Protocol 2.0 control table addresses
+ADDR_TORQUE_ENABLE = 24
+ADDR_HARDWARE_ERROR_STATUS = 50
 
 # Connection settings
 DEVICENAME = '/dev/ttyUSB0'
@@ -17,7 +17,7 @@ BAUDRATE = 1000000
 PROTOCOL_VERSION = 2.0
 
 # Motor IDs
-MOTOR_IDS = [1, 2, 3, 4]  # lazy_susan, motor_front, motor_back_left, motor_back_right
+MOTOR_IDS = [1, 2, 3, 4, 5]  # lazy_susan, motor_front, motor_back_left, motor_back_right, ear
 
 def clear_errors():
     """Read and clear hardware errors on all motors."""
